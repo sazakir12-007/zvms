@@ -1,0 +1,184 @@
+@page
+@model IndexModel
+@{
+    ViewData["Title"] = "Dashboard";
+    var cards = Model.DisplayMode == ViewMode.Cards;
+    var a = Model.Analytics;
+}
+
+<div class="page-header">
+    <h1 class="page-title">Dashboard</h1>
+    <div class="d-flex flex-wrap gap-2 align-items-center">
+        <partial name="_ViewToggle" model="Model.DisplayMode" />
+        <a class="btn btn-primary" asp-page="/CheckIn">@Icons.Svg("check-in", 16) Check in visitor</a>
+        <a class="btn btn-outline-danger" asp-page="/Reports/Evacuation" title="Everyone on site, by building and floor">@Icons.Svg("siren", 16) Evacuation</a>
+        @if (Model.AppointmentsEnabled)
+        {
+            <a class="btn btn-outline-secondary" asp-page="/Appointments/New">@Icons.Svg("calendar-plus", 16) New appointment</a>
+        }
+    </div>
+</div>
+
+<div class="stat-grid mb-4">
+    <div class="stat-card">
+        <div class="stat-icon bg-success-subtle text-success">@Icons.Svg("activity", 22)</div>
+        <div><div class="stat-value">@Model.OnSiteTotal</div><div class="stat-label">On site now</div></div>
+    </div>
+    <a class="stat-card stat-card-link @(Model.OverstayingCount > 0 ? "is-alert" : "")" href="?show=overstaying#on-site">
+        <div class="stat-icon bg-danger-subtle text-danger">@Icons.Svg("alert", 22)</div>
+        <div><div class="stat-value">@Model.OverstayingCount</div><div class="stat-label">Overstaying now</div></div>
+    </a>
+    <div class="stat-card">
+        <div class="stat-icon bg-primary-subtle text-primary">@Icons.Svg("check-in", 22)</div>
+        <div><div class="stat-value">@Model.VisitsToday</div><div class="stat-label">Checked in today</div></div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-icon bg-warning-subtle text-warning-emphasis">@Icons.Svg("calendar", 22)</div>
+        <div><div class="stat-value">@Model.ExpectedToday.Count</div><div class="stat-label">Appointments still due today</div></div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-icon bg-secondary-subtle text-secondary">@Icons.Svg("clock", 22)</div>
+        <div><div class="stat-value">@Format.Duration(TimeSpan.FromMinutes(a.AverageMinutes))</div><div class="stat-label">Average visit, last @AnalyticsService.Days days</div></div>
+    </div>
+</div>
+
+<section class="mb-4" id="on-site">
+    <div class="section-header">
+        <div class="d-flex flex-wrap align-items-center gap-2">
+            <h2 class="section-title me-2">On site</h2>
+            <div class="filter-chips" role="group" aria-label="Filter visitors on site">
+                <a class="chip @(Model.OverstayingOnly ? "" : "active")" href="?show=all#on-site">All <span>@Model.OnSiteTotal</span></a>
+                <a class="chip chip-warning @(Model.OverstayingOnly ? "active" : "")" href="?show=overstaying#on-site">@Icons.Svg("alert", 13) Overstaying <span>@Model.OverstayingCount</span></a>
+            </div>
+        </div>
+        @if (Model.OnSiteTotal > 0)
+        {
+            <form method="post" asp-page-handler="CheckOutAll" data-confirm="Check out every visitor on site?">
+                <button class="btn btn-sm btn-outline-danger">@Icons.Svg("check-out", 15) Check out all</button>
+            </form>
+        }
+    </div>
+
+    @if (!Model.OnSite.Any())
+    {
+        <div class="empty-state">@(Model.OverstayingOnly ? "Nobody is overstaying." : "No visitors on site.")</div>
+    }
+    else if (cards)
+    {
+        <div class="card-grid">
+            @foreach (var v in Model.OnSite)
+            {
+                <partial name="_VisitCard" model="new VisitCardModel(v, VisitCardContext.OnSite, Model.Blacklisted.Contains(v.Id))" />
+            }
+        </div>
+    }
+    else
+    {
+        <div class="table-card table-responsive">
+            <table class="table table-hover mb-0 align-middle">
+                <thead><tr><th>Visitor</th><th>Host</th><th>Purpose</th><th>Badge</th><th>Arrived</th><th>Expected out</th><th>Time on site</th><th></th></tr></thead>
+                <tbody>
+                @foreach (var v in Model.OnSite)
+                {
+                    var row = new VisitCardModel(v, VisitCardContext.OnSite, Model.Blacklisted.Contains(v.Id));
+                    <tr class="@(v.IsOverstaying ? "row-overstaying" : "")">
+                        <td><partial name="_VisitorCell" model="row" /></td>
+                        <td>@v.Employee?.Name<div class="small text-muted">@v.Department</div></td>
+                        <td><span class="purpose-pill @Format.PurposeClass(v.Purpose)">@v.Purpose</span></td>
+                        <td><a asp-page="/Visits/Badge" asp-route-id="@v.Id">@v.BadgeNumber</a></td>
+                        <td>@v.CheckedInAt?.ToString("t")</td>
+                        <td class="@(v.IsOverstaying ? "text-danger fw-semibold" : "")">@v.ExpectedCheckOutAt?.ToString("t")</td>
+                        <td>@Format.Duration(v.Duration)</td>
+                        <td class="text-end text-nowrap">
+                            <form method="post" class="d-inline" asp-page-handler="CheckOut" asp-route-id="@v.Id">
+                                <button class="btn btn-sm btn-outline-secondary">@Icons.Svg("check-out", 15) Check out</button>
+                            </form>
+                            <partial name="_BlacklistButton" model="row" />
+                        </td>
+                    </tr>
+                }
+                </tbody>
+            </table>
+        </div>
+    }
+</section>
+
+@if (Model.AppointmentsEnabled)
+{
+<section>
+    <div class="section-header">
+        <h2 class="section-title">Appointments due today <span class="section-count">@Model.ExpectedToday.Count</span></h2>
+        <a class="btn btn-sm btn-link" asp-page="/Appointments/Index">All appointments</a>
+    </div>
+
+    @if (!Model.ExpectedToday.Any())
+    {
+        <div class="empty-state">No more appointments today.</div>
+    }
+    else if (cards)
+    {
+        <div class="card-grid">
+            @foreach (var v in Model.ExpectedToday)
+            {
+                <partial name="_VisitCard" model="new VisitCardModel(v, VisitCardContext.Expected, Model.Blacklisted.Contains(v.Id))" />
+            }
+        </div>
+    }
+    else
+    {
+        <div class="table-card table-responsive">
+            <table class="table table-hover mb-0 align-middle">
+                <thead><tr><th>Visitor</th><th>Company</th><th>Host</th><th>Purpose</th><th>Expected</th><th>Code</th><th></th></tr></thead>
+                <tbody>
+                @foreach (var v in Model.ExpectedToday)
+                {
+                    var late = v.ExpectedAt < DateTime.Now.AddMinutes(-15);
+                    var row = new VisitCardModel(v, VisitCardContext.Expected, Model.Blacklisted.Contains(v.Id));
+                    <tr>
+                        <td><partial name="_VisitorCell" model="row" /></td>
+                        <td>@v.Company</td>
+                        <td>@v.Employee?.Name<div class="small text-muted">@v.Department</div></td>
+                        <td><span class="purpose-pill @Format.PurposeClass(v.Purpose)">@v.Purpose</span></td>
+                        <td class="@(late ? "text-danger" : "")">@v.ExpectedAt?.ToString("t")@(late ? " (late)" : "")</td>
+                        <td><code>@v.AccessCode</code></td>
+                        <td class="text-end text-nowrap">
+                            @if (row.Blacklisted)
+                            {
+                                <button class="btn btn-sm btn-success" disabled title="Blacklisted visitors can't be checked in">@Icons.Svg("check-in", 15) Check in</button>
+                            }
+                            else
+                            {
+                                <a class="btn btn-sm btn-success" asp-page="/CheckIn" asp-route-code="@v.AccessCode">@Icons.Svg("check-in", 15) Check in</a>
+                            }
+                            <form method="post" class="d-inline" asp-page-handler="Cancel" asp-route-id="@v.Id"
+                                  data-confirm="Cancel this appointment?">
+                                <button class="btn btn-sm btn-outline-danger" title="Cancel appointment" aria-label="Cancel appointment">@Icons.Svg("x", 15)</button>
+                            </form>
+                        </td>
+                    </tr>
+                }
+                </tbody>
+            </table>
+        </div>
+    }
+</section>
+}
+
+@if (Model.ChartsEnabled)
+{
+<section class="mt-4" id="analytics">
+    <div class="section-header">
+        <h2 class="section-title">Analytics</h2>
+        @if (Model.ReportsEnabled)
+        {
+            <a class="btn btn-sm btn-link" asp-page="/Reports/Index">More in Reports</a>
+        }
+    </div>
+    <div class="chart-grid">
+        <partial name="_ColumnChart" model="a.VisitsPerDay" />
+        <partial name="_ColumnChart" model="a.ByHour" />
+        <partial name="_BarChart" model="a.ByPurpose" />
+        <partial name="_BarChart" model="a.ByDepartment" />
+    </div>
+</section>
+}

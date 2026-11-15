@@ -1,0 +1,208 @@
+@page
+@model CheckInModel
+@using Microsoft.AspNetCore.Mvc.Rendering
+@{
+    ViewData["Title"] = "Check in";
+    // Visitors at the kiosk aren't signed in: show them the plain kiosk screen, not the staff app.
+    Layout = User.Identity?.IsAuthenticated == true ? "_Layout" : "_KioskLayout";
+    var byPhone = Model.LookupBy == "phone";
+}
+
+<div class="row justify-content-center">
+<div class="col-xl-9 col-lg-10">
+    <h1 class="page-title mb-4 text-center">Welcome! Please sign in</h1>
+
+    @if (Model.Blocked)
+    {
+        <div class="alert alert-warning d-flex gap-3 align-items-start" role="alert">
+            @Icons.Svg("ban", 22)
+            <div>
+                <strong>We're unable to check you in at this kiosk.</strong><br />
+                Please speak to a member of reception staff.
+            </div>
+        </div>
+    }
+
+    @if (Model.LimitMessage is { } limit)
+    {
+        <div class="alert alert-warning d-flex gap-3 align-items-start" role="alert">
+            @Icons.Svg("alert", 22)
+            <div>
+                <strong>Check-in isn't available right now.</strong><br />
+                @limit
+                @if (Model.IsStaff)
+                {
+                    <a asp-page="/Plan/Index" class="alert-link ms-1">See plan &amp; usage</a>
+                }
+            </div>
+        </div>
+    }
+
+    @if (Model.Found is { } found)
+    {
+        <div class="card mb-4 border-success">
+            <div class="card-header bg-success text-white">Your appointment</div>
+            <div class="card-body">
+                <p class="fs-5 mb-1"><strong>@found.VisitorName</strong> @(found.Company is null ? "" : $"from {found.Company}")</p>
+                <p class="mb-3">
+                    Visiting <strong>@found.Employee?.Name</strong>@(found.Employee?.Department is { } d ? $" ({d})" : "")
+                    &middot; <span class="purpose-pill @Format.PurposeClass(found.Purpose)">@found.Purpose</span>
+                    &middot; @found.ExpectedAt?.ToString("g")
+                </p>
+                <form method="post" asp-page-handler="Confirm" asp-route-id="@found.Id" class="checkin-form" data-require-photo="@(Model.Fields.Required("checkin.photo") ? "true" : "false")" data-require-signature="@(Model.Fields.Required("checkin.signature") ? "true" : "false")">
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <partial name="_OtpField" model="@(new OtpFieldModel("confirm", Model.Visit.Phone, Model.PhoneToken, AutoSubmit: false, Model.IsDummyOtp))" />
+                            @Html.ValidationMessage("Visit.Phone", new { @class = "text-danger d-block" })
+                        </div>
+                        @if (Model.Fields.Shown("checkin.stay"))
+                        {
+                            <div class="col-md-6">
+                                <partial name="_ExpectedStay" model="@(new ExpectedStayModel(Model.StayMinutes, "confirm", Model.StayOptions))" />
+                            </div>
+                        }
+                        <partial name="_VisitLocation" model="Model" view-data="@(new ViewDataDictionary(ViewData) { ["LocationForm"] = "confirm" })" />
+                        @if (Model.Fields.Shown("checkin.photo"))
+                        {
+                            <div class="col-md-6">
+                                <partial name="_CameraCapture" model="@(new CameraCaptureModel(Model.Fields.Required("checkin.photo") ? "Your photo" : "Your photo (optional)", "PhotoData", Model.PhotoData))" />
+                            </div>
+                        }
+
+                    </div>
+                    <hr />
+                    <partial name="_AgreementAndSignature" model="Model" />
+                    <button class="btn btn-success btn-lg">Check me in</button>
+                    <a asp-page="/CheckIn" class="btn btn-link">Not me</a>
+                </form>
+            </div>
+        </div>
+    }
+    else
+    {
+        @if (Model.AppointmentsEnabled)
+        {
+        <div class="card mb-4">
+            <div class="card-header">
+                <div class="d-flex flex-wrap justify-content-between align-items-center gap-2">
+                    <span>Have an appointment? Find it</span>
+                    <ul class="nav nav-pills lookup-tabs" role="tablist">
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link @(byPhone ? "" : "active")" id="lookup-code-tab" type="button" role="tab"
+                                    data-bs-toggle="pill" data-bs-target="#lookup-code" aria-controls="lookup-code"
+                                    aria-selected="@(byPhone ? "false" : "true")">
+                                @Icons.Svg("key", 15) Access code
+                            </button>
+                        </li>
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link @(byPhone ? "active" : "")" id="lookup-phone-tab" type="button" role="tab"
+                                    data-bs-toggle="pill" data-bs-target="#lookup-phone" aria-controls="lookup-phone"
+                                    aria-selected="@(byPhone ? "true" : "false")">
+                                @Icons.Svg("phone", 15) Phone number
+                            </button>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+            <div class="card-body tab-content">
+                <div class="tab-pane fade @(byPhone ? "" : "show active")" id="lookup-code" role="tabpanel" aria-labelledby="lookup-code-tab">
+                    <form method="post" asp-page-handler="Lookup" class="row g-2">
+                        <div class="col-sm-8">
+                            <label asp-for="AccessCode" class="form-label visually-hidden">Access code</label>
+                            <input asp-for="AccessCode" class="form-control form-control-lg text-uppercase" placeholder="e.g. K7Q2MX" autocomplete="off" />
+                            <span asp-validation-for="AccessCode" class="text-danger"></span>
+                        </div>
+                        <div class="col-sm-4 d-grid">
+                            <button class="btn btn-primary btn-lg">Find my appointment</button>
+                        </div>
+                    </form>
+                </div>
+                <div class="tab-pane fade @(byPhone ? "show active" : "")" id="lookup-phone" role="tabpanel" aria-labelledby="lookup-phone-tab">
+                    <form method="post" asp-page-handler="LookupPhone">
+                        <p class="small text-muted mb-2">Use the mobile number you gave when your appointment was booked. We'll send you a code to confirm it.</p>
+                        <partial name="_OtpField" model="@(new OtpFieldModel("lookup", byPhone ? Model.Visit.Phone : null, byPhone ? Model.PhoneToken : null, AutoSubmit: true, Model.IsDummyOtp))" />
+                        @Html.ValidationMessage("LookupPhone", new { @class = "text-danger d-block" })
+                        @if (byPhone && !string.IsNullOrEmpty(Model.PhoneToken))
+                        {
+                            <button class="btn btn-primary mt-2">Find my appointment</button>
+                        }
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        }
+
+        <div class="card @(Model.PhoneVerifiedWithoutBooking ? "border-primary" : "")" id="walk-in">
+            <div class="card-header">Walk-in visitor</div>
+            <div class="card-body">
+                <form method="post" asp-page-handler="WalkIn" class="checkin-form" data-require-photo="@(Model.Fields.Required("checkin.photo") ? "true" : "false")" data-require-signature="@(Model.Fields.Required("checkin.signature") ? "true" : "false")">
+                    @if (Model.CardScanEnabled)
+                    {
+                        <partial name="_BusinessCardScan" model="Model" />
+                    }
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label asp-for="Visit.VisitorName" class="form-label"></label>
+                            <input asp-for="Visit.VisitorName" class="form-control" autocomplete="name" />
+                            <span asp-validation-for="Visit.VisitorName" class="text-danger"></span>
+                        </div>
+                        <div class="col-md-6">
+                            <partial name="_OtpField" model="@(new OtpFieldModel("walkin", Model.Visit.Phone, Model.PhoneToken, AutoSubmit: false, Model.IsDummyOtp))" />
+                            @Html.ValidationMessage("Visit.Phone", new { @class = "text-danger d-block" })
+                        </div>
+                        @if (Model.Fields.Shown("checkin.company"))
+                        {
+                            <div class="col-md-6">
+                                <label asp-for="Visit.Company" class="form-label">Company @(Model.Fields.Required("checkin.company") ? "" : "(optional)")</label>
+                                <input asp-for="Visit.Company" class="form-control" autocomplete="organization" required="@Model.Fields.Required("checkin.company")" />
+                                <span asp-validation-for="Visit.Company" class="text-danger"></span>
+                            </div>
+                        }
+                        @if (Model.Fields.Shown("checkin.email"))
+                        {
+                            <div class="col-md-6">
+                                <label asp-for="Visit.Email" class="form-label">Email @(Model.Fields.Required("checkin.email") ? "" : "(optional)")</label>
+                                <input asp-for="Visit.Email" class="form-control" autocomplete="email" required="@Model.Fields.Required("checkin.email")" />
+                                <span asp-validation-for="Visit.Email" class="text-danger"></span>
+                            </div>
+                        }
+                        <div class="col-12">
+                            <partial name="_HostPicker" model="@(new HostPickerModel(Model.Hosts, Model.Visit.EmployeeId, "walkin"))" />
+                        </div>
+                        <div class="col-md-6">
+                            <label asp-for="Visit.Purpose" class="form-label"></label>
+                            <select asp-for="Visit.Purpose" asp-items="@(new SelectList(Model.Purposes))" class="form-select"></select>
+                            <span asp-validation-for="Visit.Purpose" class="text-danger"></span>
+                        </div>
+                        @if (Model.Fields.Shown("checkin.stay"))
+                        {
+                            <div class="col-md-6">
+                                <partial name="_ExpectedStay" model="@(new ExpectedStayModel(Model.StayMinutes, "walkin", Model.StayOptions))" />
+                            </div>
+                        }
+                        <partial name="_VisitLocation" model="Model" view-data="@(new ViewDataDictionary(ViewData) { ["LocationForm"] = "walkin" })" />
+                        @if (Model.Fields.Shown("checkin.photo"))
+                        {
+                            <div class="col-md-6">
+                                <partial name="_CameraCapture" model="@(new CameraCaptureModel(Model.Fields.Required("checkin.photo") ? "Your photo" : "Your photo (optional)", "PhotoData", Model.PhotoData))" />
+                            </div>
+                        }
+
+                        <div class="col-12">
+                            <hr class="mt-0" />
+                            <partial name="_AgreementAndSignature" model="Model" />
+                        </div>
+                    </div>
+                    <button class="btn btn-primary btn-lg mt-3">Check in</button>
+                </form>
+            </div>
+        </div>
+    }
+</div>
+</div>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+    <script src="~/js/checkin.js" asp-append-version="true"></script>
+}

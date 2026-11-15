@@ -1,0 +1,99 @@
+@page
+@{
+    ViewData["Title"] = "Help";
+    var topics = new (string Id, string Icon, string Title)[]
+    {
+        ("checkin", "check-in", "Checking visitors in"),
+        ("appointments", "calendar", "Appointments"),
+        ("checkout", "check-out", "Check-out and overstays"),
+        ("id", "scan", "ID cards and signatures"),
+        ("blacklist", "ban", "Blacklist"),
+        ("admin", "sliders", "Admin, reports and branding"),
+        ("signin", "shield", "Signing in and staff accounts"),
+        ("shortcuts", "key", "Keyboard shortcuts"),
+    };
+}
+
+<div class="page-header">
+    <h1 class="page-title">Help</h1>
+</div>
+
+<div class="help-layout">
+    <nav class="help-toc" aria-label="Help topics">
+        @foreach (var t in topics)
+        {
+            <a href="#@t.Id">@Icons.Svg(t.Icon, 15) @t.Title</a>
+        }
+    </nav>
+
+    <div class="help-body">
+        <section id="checkin" class="card card-body">
+            <h2 class="section-title">@Icons.Svg("check-in", 16) Checking visitors in</h2>
+            <ol>
+                <li><strong>Appointments:</strong> the visitor enters their 6-character access code, or switches to <em>Phone number</em> and confirms their mobile with a code.</li>
+                <li><strong>Walk-ins:</strong> fill in name, mobile, department and host, purpose and expected stay.</li>
+                <li>Every visitor verifies their mobile number (demo code <strong>9999</strong>), takes a photo, and signs the visitor agreement.</li>
+                <li>The badge prints straight away. The host is notified.</li>
+            </ol>
+            <p class="mb-0 small text-muted">The camera needs Chrome or Edge on <code>localhost</code> or HTTPS.</p>
+        </section>
+
+        <section id="appointments" class="card card-body">
+            <h2 class="section-title">@Icons.Svg("calendar", 16) Appointments</h2>
+            <p>Book visitors ahead from <a asp-page="/Appointments/New">New appointment</a>. They get an access code and can also check in with their mobile number.
+               Today's appointments appear on the dashboard; late ones are flagged and show in notifications.</p>
+        </section>
+
+        <section id="checkout" class="card card-body">
+            <h2 class="section-title">@Icons.Svg("check-out", 16) Check-out and overstays</h2>
+            <p>Check visitors out from the dashboard (or <em>Check out all</em> at the end of the day).
+               A visitor still on site after their expected check-out is marked <span class="flag flag-warning">Overstaying</span>;
+               use the <em>Overstaying</em> filter on the dashboard or visitor log to see them all.</p>
+        </section>
+
+        <section id="id" class="card card-body">
+            <h2 class="section-title">@Icons.Svg("scan", 16) ID cards and signatures</h2>
+            <ul>
+                <li><strong>Card reader:</strong> click <em>Scan with card reader</em>, then swipe or scan. Driver's licence barcodes, passport/ID machine-readable zones and company badges are read automatically. Bank cards are refused.</li>
+                <li><strong>Photo:</strong> <em>Photograph ID</em> captures the card with the webcam.</li>
+                <li>Only the last 4 characters of an ID number are stored. Staff can see the signature and ID photo on the visit's badge page.</li>
+            </ul>
+        </section>
+
+        <section id="blacklist" class="card card-body">
+            <h2 class="section-title">@Icons.Svg("ban", 16) Blacklist</h2>
+            <p class="mb-0">Use the @Icons.Svg("ban", 13) button on any visit, or <a asp-page="/Blacklist/Add">add someone by hand</a>.
+               Blacklisted visitors are matched on mobile number; they can't check in (the kiosk just asks them to see reception) and their badge can't be printed.</p>
+        </section>
+
+        <section id="admin" class="card card-body">
+            <h2 class="section-title">@Icons.Svg("sliders", 16) Admin, reports and branding</h2>
+            <ul class="mb-0">
+                <li><a asp-page="/Admin/Lists">Dropdown lists</a>: purposes (and their colours), departments, stay options and ID types.</li>
+                <li><a asp-page="/Admin/Branding">Branding</a>: company name, tagline, logo and banner style.</li>
+                <li><a asp-page="/Reports/Index">Reports</a>: eight report types with filters, CSV export and print.</li>
+            </ul>
+        </section>
+
+        <section id="signin" class="card card-body">
+            <h2 class="section-title">@Icons.Svg("shield", 16) Signing in and staff accounts</h2>
+            <ul class="mb-0">
+                <li><strong>Reception</strong> staff handle visitors, appointments, the visitor log, reports and the blacklist. <strong>Admins</strong> also manage hosts, staff users, dropdown lists and branding.</li>
+                <li>New accounts and admin resets use a temporary password; you'll be asked to choose your own at sign-in.</li>
+                <li>Forgotten your password? Ask an admin to reset it. After 5 wrong attempts an account is locked for 10 minutes.</li>
+                <li>The check-in kiosk doesn't need a sign-in. Leave the kiosk computer signed out so visitors only see the check-in screen.</li>
+            </ul>
+        </section>
+
+        <section id="shortcuts" class="card card-body">
+            <h2 class="section-title">@Icons.Svg("key", 16) Keyboard shortcuts</h2>
+            <table class="table table-sm mb-0" style="max-width: 420px;">
+                <tbody>
+                    <tr><td><kbd>/</kbd></td><td>Search visitors</td></tr>
+                    <tr><td><kbd>Esc</kbd></td><td>Close a menu</td></tr>
+                    <tr><td><kbd>Enter</kbd> in a code box</td><td>Send / verify the code</td></tr>
+                </tbody>
+            </table>
+        </section>
+    </div>
+</div>
