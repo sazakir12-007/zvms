@@ -1,0 +1,131 @@
+@page
+@model VisitorManagement.Pages.Employees.ImportModel
+@{
+    ViewData["Title"] = "Import hosts";
+    var p = Model.Preview;
+}
+
+<div class="page-header">
+    <div>
+        <h1 class="page-title">Import hosts</h1>
+        <p class="text-muted mb-0 small">Add or update many hosts at once from a CSV or Excel (.xlsx) file. Nothing is saved until you confirm.</p>
+    </div>
+    <a class="btn btn-outline-secondary" asp-page="./Index">Back to hosts</a>
+</div>
+
+@if (Model.Error is { } error)
+{
+    <div class="alert alert-danger">@error</div>
+}
+
+@if (p is null)
+{
+    <div class="row g-3">
+        <div class="col-lg-7">
+            <form method="post" asp-page-handler="Preview" enctype="multipart/form-data" class="card card-body">
+                <label asp-for="Upload" class="form-label">File</label>
+                <input asp-for="Upload" type="file" class="form-control" accept=".csv,.xlsx,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" required />
+                <div class="form-text">CSV or Excel .xlsx, up to 2 MB. The first sheet is used; the first row must be column headings.</div>
+
+                <div class="mt-3 d-grid gap-1">
+                    <div class="form-check">
+                        <input asp-for="UpdateExisting" class="form-check-input" />
+                        <label asp-for="UpdateExisting" class="form-check-label">Update hosts that already exist (matched by email)</label>
+                    </div>
+                    <div class="form-check">
+                        <input asp-for="CreateDepartments" class="form-check-input" />
+                        <label asp-for="CreateDepartments" class="form-check-label">Create departments that aren't in the list yet</label>
+                    </div>
+                </div>
+                <div class="mt-3">
+                    <button class="btn btn-primary">@Icons.Svg("scan", 15) Check file</button>
+                </div>
+            </form>
+        </div>
+        <div class="col-lg-5">
+            <div class="card card-body">
+                <h2 class="section-title mb-2">File layout</h2>
+                <table class="table table-sm mb-2">
+                    <thead><tr><th>Column</th><th></th><th>Also accepted</th></tr></thead>
+                    <tbody>
+                        <tr><td><strong>Name</strong></td><td>required</td><td class="small text-muted">Full name, Host, Employee</td></tr>
+                        <tr><td><strong>Email</strong></td><td>required</td><td class="small text-muted">E-mail, Email address</td></tr>
+                        <tr><td>Department</td><td class="text-muted">optional</td><td class="small text-muted">Dept, Team</td></tr>
+                        <tr><td>Phone</td><td class="text-muted">optional</td><td class="small text-muted">Mobile, Telephone</td></tr>
+                    </tbody>
+                </table>
+                <a class="btn btn-sm btn-outline-primary align-self-start" asp-page-handler="Template">@Icons.Svg("download", 14) Download CSV template</a>
+            </div>
+        </div>
+    </div>
+}
+else
+{
+    <div class="stat-grid mb-3">
+        <div class="stat-card"><div class="stat-icon">@Icons.Svg("plus", 18)</div><div><div class="stat-value">@p.Count(ImportAction.Add)</div><div class="stat-label">New hosts</div></div></div>
+        <div class="stat-card"><div class="stat-icon">@Icons.Svg("pen", 18)</div><div><div class="stat-value">@p.Count(ImportAction.Update)</div><div class="stat-label">Will be updated</div></div></div>
+        <div class="stat-card"><div class="stat-icon">@Icons.Svg("arrow-down", 18)</div><div><div class="stat-value">@p.Count(ImportAction.Skip)</div><div class="stat-label">Already exist, skipped</div></div></div>
+        <div class="stat-card"><div class="stat-icon">@Icons.Svg("alert", 18)</div><div><div class="stat-value">@p.Count(ImportAction.Error)</div><div class="stat-label">Rows with problems</div></div></div>
+    </div>
+
+    @if (p.MissingDepartments.Any())
+    {
+        <div class="alert alert-info">New departments will be created: <strong>@string.Join(", ", p.MissingDepartments)</strong></div>
+    }
+    @if (p.UnrecognisedColumns.Any())
+    {
+        <div class="alert alert-warning">These columns were ignored: @string.Join(", ", p.UnrecognisedColumns)</div>
+    }
+
+    <form method="post" class="card card-body mb-3">
+        <input type="hidden" asp-for="UploadKey" />
+        <div class="d-flex flex-wrap align-items-center gap-3">
+            <div class="me-auto small"><strong>@Model.FileName</strong> · @p.Rows.Count row(s)</div>
+            <div class="form-check m-0">
+                <input asp-for="UpdateExisting" class="form-check-input" id="opt-update" />
+                <label class="form-check-label small" for="opt-update">Update existing</label>
+            </div>
+            <div class="form-check m-0">
+                <input asp-for="CreateDepartments" class="form-check-input" id="opt-depts" />
+                <label class="form-check-label small" for="opt-depts">Create missing departments</label>
+            </div>
+            <button class="btn btn-sm btn-outline-secondary" asp-page-handler="Recheck">Re-check</button>
+            <a class="btn btn-sm btn-outline-secondary" asp-page="./Import">Choose another file</a>
+            <button class="btn btn-primary" asp-page-handler="Apply"
+                    disabled="@(p.Count(ImportAction.Add) + p.Count(ImportAction.Update) == 0)">
+                Import @(p.Count(ImportAction.Add) + p.Count(ImportAction.Update)) host(s)
+            </button>
+        </div>
+        @if (p.Count(ImportAction.Error) > 0)
+        {
+            <div class="form-text">Rows with problems are skipped. Fix them in the file and import again to add them.</div>
+        }
+    </form>
+
+    <div class="table-card table-responsive">
+        <table class="table table-sm table-hover align-middle mb-0">
+            <thead><tr><th>Row</th><th>Result</th><th>Name</th><th>Email</th><th>Department</th><th>Phone</th><th>Problems</th></tr></thead>
+            <tbody>
+            @foreach (var r in p.Rows.OrderBy(r => r.Action == ImportAction.Error ? 0 : 1).ThenBy(r => r.Line))
+            {
+                var (cls, label) = r.Action switch
+                {
+                    ImportAction.Add => ("text-bg-success", "Add"),
+                    ImportAction.Update => ("text-bg-primary", "Update"),
+                    ImportAction.Skip => ("text-bg-secondary", "Skip"),
+                    _ => ("text-bg-danger", "Error")
+                };
+                <tr>
+                    <td class="text-muted">@r.Line</td>
+                    <td><span class="badge rounded-pill @cls">@label</span></td>
+                    <td>@r.Name</td>
+                    <td>@r.Email</td>
+                    <td>@r.Department</td>
+                    <td>@r.Phone</td>
+                    <td class="small text-danger">@string.Join("; ", r.Problems)</td>
+                </tr>
+            }
+            </tbody>
+        </table>
+    </div>
+}

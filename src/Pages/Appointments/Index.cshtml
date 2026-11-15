@@ -1,0 +1,60 @@
+@page
+@model VisitorManagement.Pages.Appointments.IndexModel
+@{
+    ViewData["Title"] = "Appointments";
+    var byDay = Model.Upcoming.GroupBy(v => v.ExpectedAt?.Date);
+}
+
+<div class="page-header">
+    <h1 class="page-title">Appointments</h1>
+    <a class="btn btn-primary" asp-page="./New">@Icons.Svg("calendar-plus", 16) New appointment</a>
+</div>
+
+@if (!Model.Upcoming.Any())
+{
+    <div class="empty-state">No upcoming appointments.</div>
+}
+
+@foreach (var day in byDay)
+{
+    var date = day.Key;
+    var heading = date == DateTime.Today ? "Today"
+        : date == DateTime.Today.AddDays(1) ? "Tomorrow"
+        : date < DateTime.Today ? "Earlier (not arrived)"
+        : date?.ToString("dddd d MMMM") ?? "No date";
+
+    <section class="mb-4">
+        <div class="section-header">
+            <h2 class="section-title">@heading <span class="section-count">@day.Count()</span></h2>
+        </div>
+        <div class="table-card table-responsive">
+            <table class="table table-hover mb-0 align-middle">
+                <thead><tr><th>Time</th><th>Visitor</th><th>Company</th><th>Host</th><th>Department</th><th>Purpose</th><th>Stay</th><th>Code</th><th></th></tr></thead>
+                <tbody>
+                @foreach (var v in day)
+                {
+                    var late = v.ExpectedAt < DateTime.Now.AddMinutes(-15);
+                    var stay = VisitService.PlannedStayMinutes(v);
+                    <tr>
+                        <td class="text-nowrap @(late ? "text-danger fw-semibold" : "")">@v.ExpectedAt?.ToString("t")@(late ? " · late" : "")</td>
+                        <td><partial name="_VisitorCell" model="new VisitCardModel(v, VisitCardContext.Expected, Model.Blacklisted.Contains(v.Id))" /></td>
+                        <td>@v.Company</td>
+                        <td>@v.Employee?.Name</td>
+                        <td>@v.Department</td>
+                        <td><span class="purpose-pill @Format.PurposeClass(v.Purpose)">@v.Purpose</span></td>
+                        <td class="text-nowrap">@(stay is { } s ? ExpectedStay.Label(s) : "")</td>
+                        <td><code>@v.AccessCode</code></td>
+                        <td class="text-end text-nowrap">
+                            <a class="btn btn-sm btn-success" asp-page="/CheckIn" asp-route-code="@v.AccessCode">@Icons.Svg("check-in", 15) Check in</a>
+                            <form method="post" class="d-inline" asp-page-handler="Cancel" asp-route-id="@v.Id"
+                                  data-confirm="Cancel this appointment?">
+                                <button class="btn btn-sm btn-outline-danger" title="Cancel appointment" aria-label="Cancel appointment">@Icons.Svg("x", 15)</button>
+                            </form>
+                        </td>
+                    </tr>
+                }
+                </tbody>
+            </table>
+        </div>
+    </section>
+}

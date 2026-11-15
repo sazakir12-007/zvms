@@ -1,0 +1,125 @@
+@page
+@model VisitorManagement.Pages.Platform.PaymentsModel
+@using VisitorManagement.Models
+@{
+    ViewData["Title"] = "Payments";
+    var c = Model.Config;
+}
+
+<div class="page-header">
+    <div>
+        <h1 class="page-title">Payments</h1>
+        <p class="text-muted mb-0 small">
+            Razorpay lets organisations pay for credit online. When it's off, credit purchases are recorded "to be invoiced".
+        </p>
+    </div>
+    <form method="post" asp-page-handler="Toggle" class="d-flex align-items-center gap-2"
+          data-confirm="@(c.Active ? "Switch online payment off? Organisations will be invoiced for credit instead." : "Switch online payment on for all organisations?")">
+        <input type="hidden" name="enabled" value="@(c.Active ? "false" : "true")" />
+        <span class="badge @(c.Active ? "text-bg-success" : "text-bg-secondary")">@(c.Active ? (c.TestMode ? "On · test mode" : "On · live") : "Off")</span>
+        <button class="btn btn-sm @(c.Active ? "btn-outline-danger" : "btn-success")" disabled="@(!c.IsConfigured && !c.Active)">
+            @(c.Active ? "Switch off" : "Switch on")
+        </button>
+    </form>
+</div>
+
+<div class="row g-3">
+    <div class="col-lg-7">
+        <form method="post" asp-page-handler="Save" class="card card-body" autocomplete="off">
+            <h2 class="section-title mb-2">Razorpay settings</h2>
+            <div class="form-check form-switch mb-3">
+                <input class="form-check-input" type="checkbox" role="switch" id="rp-enabled" name="enabled" value="true" checked="@c.Enabled" />
+                <label class="form-check-label" for="rp-enabled">Enable online payment</label>
+            </div>
+            <div class="row g-2">
+                <div class="col-md-6">
+                    <label class="form-label" for="rp-key">Key id</label>
+                    <input class="form-control" id="rp-key" name="keyId" value="@c.KeyId" placeholder="rzp_test_… or rzp_live_…" spellcheck="false" />
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label" for="rp-secret">Key secret</label>
+                    <input class="form-control" id="rp-secret" name="keySecret" type="password" placeholder="@VisitorManagement.Pages.Platform.PaymentsModel.Mask(c.KeySecret)" autocomplete="new-password" />
+                    <div class="form-text">Leave empty to keep the saved secret.</div>
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label" for="rp-webhook">Webhook secret</label>
+                    <input class="form-control" id="rp-webhook" name="webhookSecret" type="password" placeholder="@VisitorManagement.Pages.Platform.PaymentsModel.Mask(c.WebhookSecret)" autocomplete="new-password" />
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label" for="rp-name">Name shown at checkout</label>
+                    <input class="form-control" id="rp-name" name="businessName" value="@c.BusinessName" maxlength="60" placeholder="Visitor Management" />
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label" for="rp-pw">Your password</label>
+                    <input class="form-control" id="rp-pw" name="password" type="password" required autocomplete="current-password" />
+                </div>
+            </div>
+            <div class="mt-3"><button class="btn btn-primary">Save settings</button></div>
+        </form>
+        <div class="d-flex gap-2 mt-2">
+            <form method="post" asp-page-handler="Test"><button class="btn btn-sm btn-outline-primary" disabled="@(!c.IsConfigured)">Test connection</button></form>
+        </div>
+    </div>
+
+    <div class="col-lg-5">
+        <div class="card card-body small">
+            <strong class="mb-1">Set-up</strong>
+            <ol class="ps-3 mb-2">
+                <li>In the Razorpay dashboard, create API keys (<em>Account &amp; Settings › API keys</em>). Use test keys first.</li>
+                <li>Add a webhook with URL <code>@Model.WebhookUrl</code>, events <code>payment.captured</code> and <code>payment.failed</code>, and a secret. Enter the same secret here.</li>
+                <li>Make sure payments are <em>auto-captured</em> (Payment capture settings).</li>
+                <li>Save, test the connection, then switch on.</li>
+            </ol>
+            <div class="text-muted">
+                Secrets are stored encrypted and never shown again. The webhook needs the site to be reachable from the internet over HTTPS;
+                without it, payments are still confirmed when the browser returns from checkout.
+            </div>
+        </div>
+        <div class="card card-body small mt-3">
+            <div>Live payments this month: <strong>@Format.Money(Model.PaidThisMonth)</strong></div>
+        </div>
+        @if (c.IsConfigured)
+        {
+            <form method="post" asp-page-handler="Clear" class="card card-body small mt-3" data-confirm="Remove the Razorpay secrets and switch online payment off?">
+                <label class="form-label" for="rp-clear-pw">Remove saved secrets</label>
+                <div class="d-flex gap-2">
+                    <input class="form-control form-control-sm" id="rp-clear-pw" name="password" type="password" placeholder="Your password" required />
+                    <button class="btn btn-sm btn-outline-danger">Remove</button>
+                </div>
+            </form>
+        }
+    </div>
+</div>
+
+<section class="mt-4">
+    <div class="section-header"><h2 class="section-title">Recent online payments</h2></div>
+    @if (!Model.Recent.Any())
+    {
+        <div class="empty-state">No online payments yet.</div>
+    }
+    else
+    {
+        <div class="table-card table-responsive">
+            <table class="table table-sm align-middle mb-0">
+                <thead><tr><th>Date</th><th>Organisation</th><th>Status</th><th class="text-end">Amount</th><th>Order / payment</th><th>By</th></tr></thead>
+                <tbody>
+                    @foreach (var r in Model.Recent)
+                    {
+                        var o = r.Order;
+                        <tr>
+                            <td class="text-nowrap">@o.CreatedAt.ToString("g")</td>
+                            <td>@r.TenantName</td>
+                            <td>
+                                <span class="badge @(o.Status switch { PaymentStatus.Paid => "text-bg-success", PaymentStatus.Failed => "text-bg-danger", _ => "text-bg-secondary" })">@(o.Status == PaymentStatus.Created ? "Not completed" : o.Status.ToString())</span>
+                                @if (o.TestMode) { <span class="badge text-bg-warning">Test</span> }
+                            </td>
+                            <td class="text-end">@Format.Money(o.Amount)</td>
+                            <td class="small"><code>@o.GatewayOrderId</code>@if (o.GatewayPaymentId is { } pid) { <br /><code>@pid</code> }</td>
+                            <td class="small">@o.By</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    }
+</section>

@@ -1,0 +1,9 @@
+@model PassModel
+@if (Model.PhotoUrl is { } url)
+{
+    <img class="pass-photo" src="@url" alt="Photo of @Model.Visit.VisitorName" />
+}
+else
+{
+    <span class="pass-photo pass-photo-empty" aria-hidden="true">@Format.Initials(Model.Visit.VisitorName)</span>
+}

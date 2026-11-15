@@ -1,0 +1,16 @@
+@model ExpectedStayModel
+@{
+    // Keep an appointment's planned length selectable even if it isn't one of the listed options.
+    var options = Model.Options.Contains(Model.Minutes) || !ExpectedStay.IsValid(Model.Minutes)
+        ? Model.Options
+        : Model.Options.Append(Model.Minutes).Order().ToArray();
+}
+<label class="form-label" for="@(Model.IdPrefix)-stay">Expected stay</label>
+<select id="@(Model.IdPrefix)-stay" name="StayMinutes" class="form-select stay-select">
+    @foreach (var m in options)
+    {
+        <option value="@m" selected="@(m == Model.Minutes)">@ExpectedStay.Label(m)</option>
+    }
+</select>
+<div class="form-text stay-until"></div>
+@Html.ValidationMessage("StayMinutes", new { @class = "text-danger" })

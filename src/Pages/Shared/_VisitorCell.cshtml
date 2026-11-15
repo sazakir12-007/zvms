@@ -1,0 +1,33 @@
+@model VisitCardModel
+@* Visitor name with photo thumbnail, verified phone and warning flags, for staff tables. *@
+@{
+    var v = Model.Visit;
+}
+<div class="d-flex align-items-center gap-2">
+    @if (v.CheckedInAt is not null)
+    {
+        <img class="visitor-thumb" src="@Tenancy.Url($"/visits/{v.Id}/photo")" alt="" loading="lazy"
+             onerror="this.replaceWith(Object.assign(document.createElement('span'), { className: 'visitor-thumb visitor-thumb-empty' }))" />
+    }
+    else
+    {
+        <span class="visitor-thumb visitor-thumb-empty"></span>
+    }
+    <div class="min-w-0">
+        <div>@v.VisitorName</div>
+        @if (!string.IsNullOrEmpty(v.Phone))
+        {
+            <div class="small text-muted">
+                @v.Phone
+                @if (v.PhoneVerified)
+                {
+                    <span class="text-success" title="Verified by OTP">&#10003;</span>
+                }
+            </div>
+        }
+        @if (Model.Blacklisted || v.IsOverstaying)
+        {
+            <div class="d-flex flex-wrap gap-1 mt-1"><partial name="_VisitFlags" model="Model" /></div>
+        }
+    </div>
+</div>

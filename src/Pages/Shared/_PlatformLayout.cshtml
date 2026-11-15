@@ -1,0 +1,112 @@
+@* Layout for platform pages (landing, platform admin). No tenant branding: these sit above tenants. *@
+@{
+    var signedIn = User.Identity?.IsAuthenticated == true && User.IsInRole(VisitorManagement.Services.PlatformAuthService.Role);
+    var path = ViewContext.HttpContext.Request.Path.Value?.ToLowerInvariant() ?? "";
+    var nav = new (string Href, string Label, string Icon)[]
+    {
+        ("/platform/tenants", "Organisations", "building"),
+        ("/platform/packages", "License packages", "package"),
+        ("/platform/payments", "Payments", "credit-card"),
+        ("/platform/feedback", "Feedback", "message"),
+        ("/platform/backups", "Backups", "database"),
+    };
+}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>@ViewData["Title"] - Visitor Management</title>
+    <script>
+        try { if (localStorage.getItem('vms-sidebar') === 'collapsed') document.documentElement.classList.add('sidebar-collapsed'); } catch (e) { }
+    </script>
+    <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css" />
+    <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
+    <link rel="stylesheet" href="~/css/theme.css" asp-append-version="true" />
+</head>
+<body class="@(signedIn && ViewData["Centered"] is not true ? "platform-body" : "auth-body")">
+    @if (ViewData["Centered"] is true)
+    {
+        <main class="auth-shell">
+            <div class="auth-card">
+                <div class="auth-brand"><partial name="_PlatformMark" /></div>
+                @if (TempData["Message"] is string message)
+                {
+                    <div class="alert alert-success" role="status">@message</div>
+                }
+                @RenderBody()
+            </div>
+        </main>
+    }
+    else
+    {
+        if (signedIn)
+        {
+            <header class="app-topbar banner-light">
+                <a href="/platform/tenants" class="app-brand text-decoration-none"><partial name="_PlatformMark" /></a>
+                <div class="topbar-actions">
+                    <span class="badge text-bg-dark">Platform admin</span>
+                    <partial name="_RecentMessages" />
+                    <div class="dropdown">
+                        <button type="button" class="topbar-profile" data-bs-toggle="dropdown" aria-expanded="false" aria-label="Account menu">
+                            <span class="avatar">@Format.Initials(User.Identity?.Name ?? "")</span>
+                            <span class="profile-text">
+                                <span class="profile-name">@User.Identity?.Name</span>
+                                <span class="profile-role">Platform admin</span>
+                            </span>
+                            @Icons.Svg("chevron-down", 14)
+                        </button>
+                        <ul class="dropdown-menu dropdown-menu-end profile-menu">
+                            <li>
+                                <form method="post" action="/platform/logout" class="m-0">
+                                    @Html.AntiForgeryToken()
+                                    <button class="dropdown-item dropdown-item-danger">@Icons.Svg("check-out", 15) Sign out</button>
+                                </form>
+                            </li>
+                        </ul>
+                    </div>
+                </div>
+            </header>
+
+            <aside class="app-sidebar" aria-label="Platform navigation">
+                <nav class="app-nav">
+                    @foreach (var item in nav)
+                    {
+                        var active = path.StartsWith(item.Href);
+                        <a class="side-link @(active ? "active" : "")" href="@item.Href" data-label="@item.Label" aria-current="@(active ? "page" : null)">
+                            @Icons.Svg(item.Icon, 20)
+                            <span class="side-label">@item.Label</span>
+                        </a>
+                    }
+                </nav>
+                <button type="button" class="side-link side-collapse" id="sidebar-collapse"
+                        data-label="Expand" aria-label="Collapse sidebar" aria-expanded="true">
+                    @Icons.Svg("chevrons-left", 20)
+                    <span class="side-label">Collapse</span>
+                </button>
+            </aside>
+
+            <div class="app-main">
+                <main role="main">
+                    <partial name="_PageMessages" model="true" />
+                    @RenderBody()
+                </main>
+            </div>
+        }
+        else
+        {
+            <header class="platform-bar">
+                <a href="/platform/tenants" class="app-brand text-decoration-none"><partial name="_PlatformMark" /></a>
+            </header>
+            <main class="platform-main">
+                <partial name="_PageMessages" model="false" />
+                @RenderBody()
+            </main>
+        }
+    }
+    <script src="~/lib/jquery/dist/jquery.min.js"></script>
+    <script src="~/lib/bootstrap/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="~/js/site.js" asp-append-version="true"></script>
+    @await RenderSectionAsync("Scripts", required: false)
+</body>
+</html>

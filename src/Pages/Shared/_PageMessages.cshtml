@@ -1,0 +1,23 @@
+@model bool
+@* Inline message area at the top of the page. Server messages (TempData) and client messages
+   (VmsMessages in site.js: notices and confirmations) all appear here; nothing uses browser dialogs.
+   Model: keep a "recent messages" history for the top bar menu (signed-in layouts only, never the kiosk). *@
+@{
+    var history = Model ? $"vms-messages:{ViewContext.HttpContext.Request.PathBase}:{User.Identity?.Name}" : null;
+}
+<div id="page-messages" class="page-messages d-print-none" aria-live="polite" data-history="@history">
+    @if (TempData["Message"] is string message)
+    {
+        <div class="alert alert-success alert-dismissible fade show" role="status" data-vms-message="@message" data-level="success">
+            @message
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
+    }
+    @if (TempData["Error"] is string error)
+    {
+        <div class="alert alert-danger alert-dismissible fade show" role="alert" data-vms-message="@error" data-level="danger">
+            @error
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
+    }
+</div>

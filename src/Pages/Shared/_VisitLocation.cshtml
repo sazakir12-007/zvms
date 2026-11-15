@@ -1,0 +1,37 @@
+@model CheckInModel
+@* Where the visitor will be (Admin › Dropdown lists › Buildings / Floors); used by the evacuation report.
+   ViewData["LocationForm"] keeps the ids unique when the page has two forms. *@
+@{
+    var form = ViewData["LocationForm"] as string ?? "loc";
+    var mode = Model.Fields["checkin.location"];
+    var required = mode == VisitorManagement.Services.FieldMode.Required;
+    if (mode == VisitorManagement.Services.FieldMode.Hidden) return;
+}
+@if (Model.Buildings.Any())
+{
+    <div class="col-6 col-md-3">
+        <label class="form-label" for="@form-building">Building</label>
+        <select class="form-select" id="@form-building" name="Building" required="@required">
+            <option value="">@(required ? "Choose…" : "Not specified")</option>
+            @foreach (var b in Model.Buildings)
+            {
+                <option selected="@(b == Model.Building)">@b</option>
+            }
+        </select>
+        @Html.ValidationMessage("Building", new { @class = "text-danger" })
+    </div>
+}
+@if (Model.Floors.Any())
+{
+    <div class="col-6 col-md-3">
+        <label class="form-label" for="@form-floor">Floor</label>
+        <select class="form-select" id="@form-floor" name="Floor" required="@required">
+            <option value="">@(required ? "Choose…" : "Not specified")</option>
+            @foreach (var f in Model.Floors)
+            {
+                <option selected="@(f == Model.Floor)">@f</option>
+            }
+        </select>
+        @Html.ValidationMessage("Floor", new { @class = "text-danger" })
+    </div>
+}

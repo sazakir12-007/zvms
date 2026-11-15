@@ -1,0 +1,36 @@
+@model ChartData
+@* Horizontal bars for named categories (purpose, department). Labels on the left, value at each bar's tip. *@
+@{
+    var max = Model.Max;
+}
+<figure class="chart-card">
+    <figcaption>
+        <div class="chart-title">@Model.Title</div>
+        <div class="chart-subtitle">@Model.Subtitle</div>
+    </figcaption>
+    @if (max <= 0)
+    {
+        <div class="chart-empty">No data yet</div>
+    }
+    else
+    {
+        <div class="bar-chart" role="img" aria-label="@Model.Title: @string.Join(", ", Model.Points.Select(p => $"{p.Label} {p.Value}"))">
+            @foreach (var p in Model.Points)
+            {
+                var pct = p.Value / max * 100;
+                var share = Model.Total == 0 ? 0 : p.Value / Model.Total;
+                <div class="bar-chart-row" tabindex="0" data-tip="@(p.Tooltip ?? $"{p.Label}: {p.Value}{Model.ValueSuffix} ({share:P0})")">
+                    <span class="bar-chart-label" title="@p.Label">@p.Label</span>
+                    <span class="bar-chart-track">
+                        @if (p.Value > 0)
+                        {
+                            <span class="bar-chart-bar @p.CssClass" style="width:@pct.ToString("0.##", System.Globalization.CultureInfo.InvariantCulture)%"></span>
+                        }
+                        <span class="bar-chart-value">@ChartScale.Format(p.Value)@Model.ValueSuffix</span>
+                    </span>
+                </div>
+            }
+        </div>
+    }
+    <partial name="_ChartTable" model="Model" />
+</figure>

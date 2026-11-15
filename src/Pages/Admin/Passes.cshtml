@@ -1,0 +1,93 @@
+@page
+@model VisitorManagement.Pages.Admin.PassesModel
+@{
+    ViewData["Title"] = "Pass templates";
+}
+
+<div class="page-header">
+    <div>
+        <h1 class="page-title">Pass templates</h1>
+        <p class="text-muted mb-0 small">Choose how visitor passes look when printed. Previews use sample data and your current branding.</p>
+    </div>
+</div>
+
+<form method="post" id="pass-form">
+    <div class="pass-choices mb-3">
+        @foreach (var t in PassSettings.Templates)
+        {
+            var id = $"tpl-{t.Template}";
+            <input type="radio" class="btn-check" name="Template" id="@id" value="@t.Template" checked="@(Model.Template == t.Template)" />
+            <label class="pass-choice" for="@id">
+                <span class="pass-choice-preview">
+                    @{
+                        // Fit the real-size pass (96 px per inch) into a 250 x 190 px preview box.
+                        var scale = Math.Min(250 / (t.WidthIn * 96), 190 / (t.HeightIn * 96));
+                    }
+                    <span class="pass-scale" style="@(FormattableString.Invariant($"width: {t.WidthIn * 96 * scale:0}px; height: {t.HeightIn * 96 * scale:0}px; --scale: {scale:0.###};"))">
+                        <partial name="_Pass" model="@(new PassModel(Model.Sample, Model.Brand, Model.Current(t.Template), null))" />
+                    </span>
+                </span>
+                <span class="pass-choice-meta">
+                    <span class="pass-choice-name">@t.Name <span class="text-muted fw-normal small">· @t.Size</span></span>
+                    <span class="pass-choice-desc">@t.Description</span>
+                </span>
+            </label>
+        }
+    </div>
+
+    <div class="card card-body" style="max-width: 760px;">
+        <span class="form-label">Show on the pass</span>
+        <div class="d-flex flex-wrap gap-3 mb-3">
+            @foreach (var (prop, label, cls) in new[]
+            {
+                (nameof(Model.ShowLogo), "Company logo", "no-logo"),
+                (nameof(Model.ShowPhoto), "Visitor photo", "no-photo"),
+                (nameof(Model.ShowCompany), "Visitor's company", "no-company"),
+                (nameof(Model.ShowHost), "Host", "no-host"),
+                (nameof(Model.ShowValidUntil), "Valid until (expected check-out)", "no-until"),
+            })
+            {
+                var on = prop switch
+                {
+                    nameof(Model.ShowLogo) => Model.ShowLogo,
+                    nameof(Model.ShowPhoto) => Model.ShowPhoto,
+                    nameof(Model.ShowCompany) => Model.ShowCompany,
+                    nameof(Model.ShowHost) => Model.ShowHost,
+                    _ => Model.ShowValidUntil
+                };
+                <div class="form-check form-switch m-0">
+                    <input class="form-check-input pass-option" type="checkbox" role="switch" name="@prop" value="true"
+                           id="opt-@prop" data-off-class="@cls" checked="@on" />
+                    <label class="form-check-label" for="opt-@prop">@label</label>
+                </div>
+            }
+        </div>
+        <label asp-for="FooterText" class="form-label"></label>
+        <input asp-for="FooterText" class="form-control" maxlength="80" placeholder="Leave empty for no footer" />
+        <span asp-validation-for="FooterText" class="text-danger"></span>
+        <div class="form-text">The photo is a key security feature; only hide it for printers that can't print images well.</div>
+        <div class="mt-3">
+            <button class="btn btn-primary">Save pass settings</button>
+        </div>
+    </div>
+</form>
+
+@section Scripts {
+    <script>
+        // Live preview: options toggle the same classes the printed pass uses.
+        (function () {
+            var form = document.getElementById('pass-form');
+            var footer = form.querySelector('[name=FooterText]');
+            function update() {
+                form.querySelectorAll('.pass').forEach(function (pass) {
+                    form.querySelectorAll('.pass-option').forEach(function (opt) {
+                        pass.classList.toggle(opt.dataset.offClass, !opt.checked);
+                    });
+                    pass.querySelectorAll('.pass-footer').forEach(function (f) { f.textContent = footer.value; });
+                });
+            }
+            form.addEventListener('change', update);
+            footer.addEventListener('input', update);
+        })();
+    </script>
+}

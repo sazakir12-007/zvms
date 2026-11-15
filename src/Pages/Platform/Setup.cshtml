@@ -1,0 +1,34 @@
+@page
+@model VisitorManagement.Pages.Platform.SetupModel
+@{
+    ViewData["Title"] = "Platform setup";
+    ViewData["Centered"] = true;
+}
+
+<h1 class="auth-title">Create the platform admin</h1>
+<p class="auth-sub">The platform admin creates and manages organisations (tenants). It's separate from each organisation's own staff accounts.</p>
+
+<form method="post">
+    <div class="mb-2">
+        <label asp-for="Name" class="form-label"></label>
+        <input asp-for="Name" class="form-control" autofocus />
+        <span asp-validation-for="Name" class="text-danger"></span>
+    </div>
+    <div class="mb-2">
+        <label asp-for="Email" class="form-label"></label>
+        <input asp-for="Email" class="form-control" autocomplete="username" />
+        <span asp-validation-for="Email" class="text-danger"></span>
+    </div>
+    <div class="mb-2">
+        <label asp-for="Password" class="form-label"></label>
+        <input asp-for="Password" class="form-control" autocomplete="new-password" />
+        <div class="form-text">At least @StaffAuthService.MinPasswordLength characters, with letters and numbers.</div>
+        <span asp-validation-for="Password" class="text-danger"></span>
+    </div>
+    <div class="mb-3">
+        <label asp-for="ConfirmPassword" class="form-label"></label>
+        <input asp-for="ConfirmPassword" class="form-control" autocomplete="new-password" />
+        <span asp-validation-for="ConfirmPassword" class="text-danger"></span>
+    </div>
+    <button class="btn btn-primary w-100">Create platform admin</button>
+</form>

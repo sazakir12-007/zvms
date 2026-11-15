@@ -1,0 +1,218 @@
+@page
+@model VisitorManagement.Pages.Reports.IndexModel
+@{
+    ViewData["Title"] = "Reports";
+    var selected = Model.Type ?? ReportType.DailySummary;
+    var r = Model.Result;
+    var query = new Dictionary<string, string?>
+    {
+        ["Type"] = Model.Type?.ToString(),
+        ["From"] = Model.From?.ToString("yyyy-MM-dd"),
+        ["To"] = Model.To?.ToString("yyyy-MM-dd"),
+        ["Department"] = Model.Department,
+        ["HostId"] = Model.HostId?.ToString(),
+        ["Purpose"] = Model.Purpose
+    };
+}
+
+<div class="page-header d-print-none">
+    <h1 class="page-title">Reports</h1>
+</div>
+
+<form method="get" class="report-builder d-print-none mb-4">
+    <fieldset class="mb-3">
+        <legend class="section-title mb-2">1. Choose a report</legend>
+        <div class="report-types">
+            @foreach (var info in ReportService.Catalog)
+            {
+                var id = $"type-{info.Type}";
+                <input type="radio" class="btn-check" name="Type" id="@id" value="@info.Type" checked="@(info.Type == selected)" />
+                <label class="report-type" for="@id">
+                    <span class="report-type-icon">@Icons.Svg(info.Icon, 20)</span>
+                    <span>
+                        <span class="report-type-title">@info.Title</span>
+                        <span class="report-type-desc">@info.Description</span>
+                    </span>
+                </label>
+            }
+            <a class="report-type report-type-evac" asp-page="./Evacuation">
+                <span class="report-type-icon">@Icons.Svg("siren", 20)</span>
+                <span>
+                    <span class="report-type-title">Evacuation roll call</span>
+                    <span class="report-type-desc">Everyone on site now, by building and floor, to print and tick off.</span>
+                </span>
+            </a>
+        </div>
+    </fieldset>
+
+    <fieldset>
+        <legend class="section-title mb-2">2. Filter</legend>
+        <div class="row g-2 align-items-end">
+            <div class="col-sm-6 col-lg-2">
+                <label class="form-label small" for="Range">Period</label>
+                <select class="form-select" id="Range" name="Range" data-range-select>
+                    <option value="">Custom dates</option>
+                    <option value="today" selected="@(Model.Range == "today")">Today</option>
+                    <option value="week" selected="@(Model.Range == "week")">This week</option>
+                    <option value="month" selected="@(Model.Range == "month")">This month</option>
+                    <option value="30d" selected="@(Model.Range == "30d")">Last 30 days</option>
+                    <option value="90d" selected="@(Model.Range == "90d")">Last 90 days</option>
+                </select>
+            </div>
+            <div class="col-sm-3 col-lg-2">
+                <label asp-for="From" class="form-label small">From</label>
+                <input asp-for="From" type="date" class="form-control" value="@((Model.From ?? DateTime.Today.AddDays(-29)).ToString("yyyy-MM-dd"))" />
+            </div>
+            <div class="col-sm-3 col-lg-2">
+                <label asp-for="To" class="form-label small">To</label>
+                <input asp-for="To" type="date" class="form-control" value="@((Model.To ?? DateTime.Today).ToString("yyyy-MM-dd"))" />
+            </div>
+            <div class="col-sm-4 col-lg-2">
+                <label asp-for="Department" class="form-label small">Department</label>
+                <select asp-for="Department" class="form-select">
+                    <option value="">All</option>
+                    @foreach (var d in Model.Departments)
+                    {
+                        <option value="@d">@d</option>
+                    }
+                </select>
+            </div>
+            <div class="col-sm-4 col-lg-2">
+                <label asp-for="HostId" class="form-label small">Host</label>
+                <select asp-for="HostId" class="form-select">
+                    <option value="">All</option>
+                    @foreach (var h in Model.Hosts)
+                    {
+                        <option value="@h.Id">@h.Name</option>
+                    }
+                </select>
+            </div>
+            <div class="col-sm-4 col-lg-2">
+                <label asp-for="Purpose" class="form-label small">Purpose</label>
+                <select asp-for="Purpose" class="form-select">
+                    <option value="">All</option>
+                    @foreach (var p in Model.Purposes)
+                    {
+                        <option value="@p">@p</option>
+                    }
+                </select>
+            </div>
+        </div>
+        <div class="mt-3">
+            <button class="btn btn-primary">@Icons.Svg("chart", 16) Generate report</button>
+        </div>
+    </fieldset>
+</form>
+
+@if (Model.Error is { } error)
+{
+    <div class="alert alert-warning">@error</div>
+}
+
+@if (r is not null)
+{
+    <section class="report-result">
+        <div class="report-header">
+            <div>
+                <h2 class="report-title">@r.Info.Title</h2>
+                <div class="text-muted small">
+                    @r.Period
+                    @if (r.Info.Type != ReportType.Blacklist)
+                    {
+                        @if (!string.IsNullOrEmpty(Model.Department)) { <text> · @Model.Department</text> }
+                        @if (Model.HostId is { } hid && Model.Hosts.FirstOrDefault(h => h.Id == hid) is { } host) { <text> · Host: @host.Name</text> }
+                        @if (!string.IsNullOrEmpty(Model.Purpose)) { <text> · @Model.Purpose</text> }
+                    }
+                    · Generated @DateTime.Now.ToString("g")
+                </div>
+            </div>
+            <div class="d-flex gap-2 d-print-none">
+                <a class="btn btn-outline-secondary" asp-page-handler="Export" asp-all-route-data="query">@Icons.Svg("download", 16) Export CSV</a>
+                <button type="button" class="btn btn-outline-secondary" onclick="window.print()">@Icons.Svg("printer", 16) Print</button>
+            </div>
+        </div>
+
+        @if (r.Chart is { } chart && r.Rows.Count > 0)
+        {
+            <div class="report-chart mb-3">
+                @if (r.ChartIsTimeline)
+                {
+                    <partial name="_ColumnChart" model="chart" />
+                }
+                else
+                {
+                    <partial name="_BarChart" model="chart" />
+                }
+            </div>
+        }
+
+        @if (r.Rows.Count == 0)
+        {
+            <div class="empty-state">No data for this report and filter.</div>
+        }
+        else
+        {
+            <div class="table-card table-responsive">
+                <table class="table table-sm table-hover mb-0 align-middle report-table">
+                    <thead>
+                        <tr>
+                            @foreach (var c in r.Columns)
+                            {
+                                <th class="@(c.Numeric ? "text-end" : "")">@c.Header</th>
+                            }
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var row in r.Rows)
+                        {
+                            <tr>
+                                @for (var i = 0; i < r.Columns.Count; i++)
+                                {
+                                    <td class="@(r.Columns[i].Numeric ? "text-end tabular" : "")">@row[i]</td>
+                                }
+                            </tr>
+                        }
+                    </tbody>
+                    @if (r.Totals is { } totals)
+                    {
+                        <tfoot>
+                            <tr>
+                                @for (var i = 0; i < r.Columns.Count; i++)
+                                {
+                                    <td class="@(r.Columns[i].Numeric ? "text-end tabular" : "")">@totals[i]</td>
+                                }
+                            </tr>
+                        </tfoot>
+                    }
+                </table>
+            </div>
+            <p class="small text-muted mt-2">@r.Rows.Count row(s)</p>
+        }
+    </section>
+}
+
+@section Scripts {
+    <script>
+        // Picking a quick period fills in the dates; editing a date switches back to custom.
+        (function () {
+            var range = document.querySelector('[data-range-select]');
+            var from = document.getElementById('From');
+            var to = document.getElementById('To');
+            function iso(d) { return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); }
+            range.addEventListener('change', function () {
+                var t = new Date(); t.setHours(0, 0, 0, 0);
+                var f = new Date(t);
+                switch (range.value) {
+                    case 'today': break;
+                    case 'week': f.setDate(t.getDate() - ((t.getDay() + 6) % 7)); break;
+                    case 'month': f.setDate(1); break;
+                    case '30d': f.setDate(t.getDate() - 29); break;
+                    case '90d': f.setDate(t.getDate() - 89); break;
+                    default: return;
+                }
+                from.value = iso(f); to.value = iso(t);
+            });
+            [from, to].forEach(function (el) { el.addEventListener('input', function () { range.value = ''; }); });
+        })();
+    </script>
+}

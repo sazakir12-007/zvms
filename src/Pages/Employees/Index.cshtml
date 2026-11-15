@@ -1,0 +1,78 @@
+@page
+@inject VisitorManagement.Services.LicenseService License
+@model VisitorManagement.Pages.Employees.IndexModel
+@{
+    ViewData["Title"] = "Hosts";
+}
+
+<div class="page-header">
+    <h1 class="page-title">Hosts</h1>
+    <div class="d-flex flex-wrap gap-2">
+        @if (await License.HasFeatureAsync(VisitorManagement.Models.Feature.HostImport))
+        {
+            <a class="btn btn-primary" asp-page="./Import">@Icons.Svg("download", 16) Import CSV / Excel</a>
+        }
+        <a class="btn btn-outline-secondary" href="@(Url.Page("/Admin/Lists") + "#list-Department")">@Icons.Svg("sliders", 16) Manage departments</a>
+    </div>
+</div>
+
+<form method="post" asp-page-handler="Add" class="card card-body mb-4">
+    <div class="row g-2 align-items-end">
+        <div class="col-md-3">
+            <label asp-for="NewEmployee.Name" class="form-label small">Name</label>
+            <input asp-for="NewEmployee.Name" class="form-control" />
+            <span asp-validation-for="NewEmployee.Name" class="text-danger small"></span>
+        </div>
+        <div class="col-md-3">
+            <label asp-for="NewEmployee.Email" class="form-label small">Email</label>
+            <input asp-for="NewEmployee.Email" class="form-control" />
+            <span asp-validation-for="NewEmployee.Email" class="text-danger small"></span>
+        </div>
+        <div class="col-md-2">
+            <label asp-for="NewEmployee.Department" class="form-label small">Department</label>
+            <select asp-for="NewEmployee.Department" class="form-select">
+                <option value="">Select…</option>
+                @foreach (var d in Model.Departments)
+                {
+                    <option value="@d">@d</option>
+                }
+            </select>
+            <span asp-validation-for="NewEmployee.Department" class="text-danger small"></span>
+        </div>
+        <div class="col-md-2">
+            <label asp-for="NewEmployee.Phone" class="form-label small">Phone</label>
+            <input asp-for="NewEmployee.Phone" class="form-control" />
+            <span asp-validation-for="NewEmployee.Phone" class="text-danger small"></span>
+        </div>
+        <div class="col-md-2 d-grid">
+            <button class="btn btn-primary">Add host</button>
+        </div>
+    </div>
+</form>
+
+<div class="table-card table-responsive">
+<table class="table table-hover align-middle mb-0">
+    <thead><tr><th>Name</th><th>Email</th><th>Department</th><th>Phone</th><th>Status</th><th></th></tr></thead>
+    <tbody>
+    @foreach (var e in Model.Employees)
+    {
+        <tr class="@(e.IsActive ? "" : "text-muted")">
+            <td>@e.Name</td>
+            <td>@e.Email</td>
+            <td>@e.Department</td>
+            <td>@e.Phone</td>
+            <td>@(e.IsActive ? "Active" : "Inactive")</td>
+            <td class="text-end">
+                <form method="post" asp-page-handler="Toggle" asp-route-id="@e.Id">
+                    <button class="btn btn-sm btn-outline-secondary">@(e.IsActive ? "Deactivate" : "Activate")</button>
+                </form>
+            </td>
+        </tr>
+    }
+    </tbody>
+</table>
+</div>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+}

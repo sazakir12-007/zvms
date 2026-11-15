@@ -1,0 +1,112 @@
+@page "{id:int}"
+@model VisitorManagement.Pages.Visits.BadgeModel
+@{
+    ViewData["Title"] = "Visitor badge";
+    Layout = Model.IsStaff ? "_Layout" : "_KioskLayout";
+    var v = Model.Visit;
+}
+
+@if (Model.Blacklisted)
+{
+    <div class="alert alert-danger d-flex gap-3 align-items-start d-print-none" role="alert">
+        @Icons.Svg("ban", 22)
+        <div>
+            <strong>Badge printing is disabled.</strong>
+            This visitor's number is on the blacklist.
+        </div>
+    </div>
+    @* Ctrl+P prints this instead of the badge. *@
+    <p class="d-none d-print-block">Badge printing is disabled for this visitor.</p>
+}
+
+<div class="text-center d-print-none mb-4">
+    @if (Model.Kiosk && !Model.Blacklisted)
+    {
+        <h1 class="page-title">You're checked in, @v.VisitorName.Split(' ')[0]!</h1>
+        <p class="text-muted">@v.Employee?.Name has been notified. Please collect your badge and take a seat.</p>
+    }
+    else
+    {
+        <h1 class="page-title mb-3">Visitor badge</h1>
+    }
+    @if (Model.Blacklisted)
+    {
+        <button class="btn btn-primary" disabled title="Disabled: visitor is blacklisted">@Icons.Svg("printer", 16) Print badge</button>
+    }
+    else
+    {
+        <button class="btn btn-primary" onclick="window.print()">@Icons.Svg("printer", 16) Print badge</button>
+    }
+    @if (Model.Kiosk)
+    {
+        <a class="btn btn-outline-secondary" asp-page="/CheckIn">Done</a>
+    }
+    else
+    {
+        <a class="btn btn-outline-secondary" asp-page="/Index">Back to dashboard</a>
+    }
+</div>
+
+@* Print exactly one pass, at the chosen template's size. *@
+<style>
+    @@page { size: @Model.Pass.Settings.Info.CssSize; margin: 0; }
+</style>
+<div class="pass-stage">
+    <partial name="_Pass" model="Model.Pass" />
+</div>
+@if (Model.IsStaff && !Model.Kiosk && User.IsInRole(VisitorManagement.Models.StaffRoles.Admin))
+{
+    <p class="text-center small text-muted mt-2 d-print-none">
+        @Model.Pass.Settings.Info.Name template · @Model.Pass.Settings.Info.Size ·
+        <a asp-page="/Admin/Passes">change</a>
+    </p>
+}
+
+@* Staff only: what the visitor provided at check-in. Never printed, not shown on the kiosk. *@
+@if (Model.IsStaff && !Model.Kiosk)
+{
+    <section class="checkin-record d-print-none">
+        <div class="section-header"><h2 class="section-title">Check-in record</h2></div>
+        <div class="row g-3">
+            <div class="col-md-4">
+                <div class="small text-muted mb-1">Signature (visitor agreement)</div>
+                @if (Model.Attachments.Contains(AttachmentKind.Signature))
+                {
+                    <img src="@Tenancy.Url($"/visits/{v.Id}/attachments/Signature")" alt="Signature of @v.VisitorName" />
+                }
+                else
+                {
+                    <div class="empty-state py-3 small">@(v.AgreementAccepted ? "Agreement accepted (no signature on file)" : "No signature")</div>
+                }
+            </div>
+            <div class="col-md-8">
+                @if (Model.Attachments.Contains(AttachmentKind.BusinessCard))
+                {
+                    <div class="small text-muted mb-1">Business card</div>
+                    <img src="@Tenancy.Url($"/visits/{v.Id}/attachments/BusinessCard")" alt="Business card of @v.VisitorName" />
+                }
+                else if (Model.Attachments.Contains(AttachmentKind.IdCard) || !string.IsNullOrEmpty(v.IdDocumentType))
+                {
+                    @* Visits from when ID cards were captured. *@
+                    <div class="small text-muted mb-1">ID card @(v.IdDocumentType is { } t ? $"· {t}" : "") @(v.IdNumberMasked is { } n ? $"· number {n}" : "")</div>
+                    @if (Model.Attachments.Contains(AttachmentKind.IdCard))
+                    {
+                        <img src="@Tenancy.Url($"/visits/{v.Id}/attachments/IdCard")" alt="ID card of @v.VisitorName" />
+                    }
+                }
+                else
+                {
+                    <div class="small text-muted mb-1">Business card</div>
+                    <div class="empty-state py-3 small">No business card scanned</div>
+                }
+            </div>
+        </div>
+    </section>
+}
+
+@if (Model.Kiosk)
+{
+    @section Scripts {
+        <script>setTimeout(() => location.href = '@Url.Page("/CheckIn")', 30000);</script>
+    }
+}

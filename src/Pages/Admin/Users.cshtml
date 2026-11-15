@@ -1,0 +1,117 @@
+@page
+@model VisitorManagement.Pages.Admin.UsersModel
+@{
+    ViewData["Title"] = "Staff users";
+}
+
+<div class="page-header">
+    <div>
+        <h1 class="page-title">Staff users</h1>
+        <p class="text-muted mb-0 small">People who can sign in. <strong>Reception</strong> handles visitors; <strong>Admin</strong> also manages hosts, lists, branding and staff.</p>
+    </div>
+</div>
+
+<form method="post" asp-page-handler="Add" class="card card-body mb-3">
+    <div class="row g-2 align-items-end">
+        <div class="col-md-3">
+            <label asp-for="NewUser.Name" class="form-label">Name</label>
+            <input asp-for="NewUser.Name" class="form-control" />
+            <span asp-validation-for="NewUser.Name" class="text-danger"></span>
+        </div>
+        <div class="col-md-3">
+            <label asp-for="NewUser.Email" class="form-label">Email (sign-in)</label>
+            <input asp-for="NewUser.Email" class="form-control" autocomplete="off" />
+            <span asp-validation-for="NewUser.Email" class="text-danger"></span>
+        </div>
+        <div class="col-md-2">
+            <label asp-for="NewUser.Role" class="form-label">Role</label>
+            <select asp-for="NewUser.Role" class="form-select">
+                @foreach (var r in StaffRoles.All)
+                {
+                    <option value="@r">@r</option>
+                }
+            </select>
+        </div>
+        <div class="col-md-2">
+            <label asp-for="NewUser.Password" class="form-label">Temporary password</label>
+            <input asp-for="NewUser.Password" class="form-control" autocomplete="new-password" />
+            <span asp-validation-for="NewUser.Password" class="text-danger"></span>
+        </div>
+        <div class="col-md-2 d-grid">
+            <button class="btn btn-primary">@Icons.Svg("plus", 14) Add user</button>
+        </div>
+    </div>
+    <div class="form-text">They'll be asked to choose their own password the first time they sign in.</div>
+</form>
+
+<div class="table-card table-responsive">
+    <table class="table table-hover align-middle mb-0">
+        <thead>
+            <tr><th>User</th><th>Role</th><th>Status</th><th>Last sign-in</th><th class="text-end">Reset password</th></tr>
+        </thead>
+        <tbody>
+        @foreach (var u in Model.Users)
+        {
+            var isMe = u.Id == Model.CurrentUserId;
+            var formId = $"user-{u.Id}";
+            <tr class="@(u.IsActive ? "" : "text-muted")">
+                <td>
+                    <div class="d-flex align-items-center gap-2">
+                        <span class="avatar">@Format.Initials(u.Name)</span>
+                        <div class="min-w-0">
+                            <form method="post" asp-page-handler="Update" asp-route-id="@u.Id" id="@formId" class="d-flex gap-1">
+                                <input name="name" value="@u.Name" class="form-control form-control-sm" style="max-width: 200px;" aria-label="Name" required />
+                            </form>
+                            <div class="small text-muted">@u.Email @(isMe ? "(you)" : "")</div>
+                        </div>
+                    </div>
+                </td>
+                <td>
+                    <select name="role" form="@formId" class="form-select form-select-sm" style="width: auto;" aria-label="Role">
+                        @foreach (var r in StaffRoles.All)
+                        {
+                            <option value="@r" selected="@(u.Role == r)">@r</option>
+                        }
+                    </select>
+                </td>
+                <td class="text-nowrap">
+                    <div class="d-flex align-items-center gap-2">
+                        <div class="form-check form-switch m-0">
+                            <input class="form-check-input" type="checkbox" role="switch" name="isActive" value="true" form="@formId"
+                                   id="active-@u.Id" checked="@u.IsActive" disabled="@isMe" />
+                            <label class="form-check-label small" for="active-@u.Id">Active</label>
+                        </div>
+                        @if (isMe)
+                        {
+                            <input type="hidden" name="isActive" value="true" form="@formId" />
+                        }
+                        <button class="btn btn-sm btn-outline-primary" form="@formId">Save</button>
+                    </div>
+                    @if (u.LockedUntil > DateTime.Now)
+                    {
+                        <span class="flag flag-warning mt-1">Locked until @u.LockedUntil?.ToString("t")</span>
+                    }
+                    @if (u.MustChangePassword)
+                    {
+                        <span class="flag flag-warning mt-1">Temporary password</span>
+                    }
+                </td>
+                <td class="small text-nowrap">@(u.LastSignInAt?.ToString("g") ?? "Never")</td>
+                <td class="text-end">
+                    @if (!isMe)
+                    {
+                        <form method="post" asp-page-handler="Reset" asp-route-id="@u.Id" class="d-inline-flex gap-1">
+                            <input name="temporaryPassword" class="form-control form-control-sm" style="width: 150px;" placeholder="New temporary password" aria-label="New temporary password for @u.Name" autocomplete="new-password" required />
+                            <button class="btn btn-sm btn-outline-secondary">Reset</button>
+                        </form>
+                    }
+                    else
+                    {
+                        <a class="btn btn-sm btn-link" asp-page="/Account/ChangePassword">Change mine</a>
+                    }
+                </td>
+            </tr>
+        }
+        </tbody>
+    </table>
+</div>

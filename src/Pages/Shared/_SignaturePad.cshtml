@@ -1,0 +1,15 @@
+@model CheckInModel
+@* Signature accepting the visitor agreement. Behaviour lives in wwwroot/js/checkin.js. *@
+<div class="signature-pad">
+    <div class="d-flex justify-content-between align-items-end">
+        <span class="form-label mb-1">@Icons.Svg("pen", 15) Your signature @(Model.Fields.Required("checkin.signature") ? "" : "(optional)")</span>
+        <button type="button" class="btn btn-sm btn-link signature-clear">Clear</button>
+    </div>
+    <div class="signature-frame">
+        <canvas class="signature-canvas" aria-label="Signature pad: sign with your finger, stylus or mouse"></canvas>
+        <span class="signature-placeholder" aria-hidden="true">Sign here</span>
+        <span class="signature-line" aria-hidden="true"></span>
+    </div>
+    <input type="hidden" name="SignatureData" value="@Model.SignatureData" class="signature-data" />
+    @Html.ValidationMessage("SignatureData", new { @class = "text-danger d-block" })
+</div>

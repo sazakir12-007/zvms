@@ -1,0 +1,17 @@
+@model CameraCaptureModel
+@* Webcam capture box. Behaviour lives in wwwroot/js/checkin.js. *@
+<div class="camera-widget @Model.CssClass" data-autostart="@(Model.AutoStart ? "true" : "false")">
+    <label class="form-label">@Model.Label</label>
+    <div class="camera-frame @(Model.Mirror ? "" : "no-mirror")">
+        <video class="camera-video" autoplay playsinline muted></video>
+        <img class="camera-preview d-none" alt="@Model.Label" />
+        <div class="camera-message small text-center px-3"></div>
+    </div>
+    <div class="mt-2 d-flex gap-2">
+        <button type="button" class="btn btn-outline-primary camera-start">Start camera</button>
+        <button type="button" class="btn btn-primary camera-capture d-none">@Model.CaptureLabel</button>
+        <button type="button" class="btn btn-outline-secondary camera-retake d-none">Retake</button>
+    </div>
+    <input type="hidden" name="@Model.InputName" value="@Model.Value" class="photo-data" />
+    @Html.ValidationMessage(Model.InputName, new { @class = "text-danger d-block" })
+</div>

@@ -1,0 +1,136 @@
+@page
+@model VisitorManagement.Pages.Reports.EvacuationModel
+@{
+    ViewData["Title"] = "Evacuation roll call";
+}
+
+<div class="page-header evac-header">
+    <div>
+        <h1 class="page-title">@Icons.Svg("siren", 24) Evacuation roll call</h1>
+        <p class="text-muted mb-0 small">
+            Everyone checked in right now, by building and floor · generated @Model.GeneratedAt.ToString("g")
+            @if (!string.IsNullOrEmpty(Model.Building))
+            {
+                <text> · @Model.Building only</text>
+            }
+        </p>
+    </div>
+    <div class="d-flex flex-wrap gap-2 d-print-none">
+        <a class="btn btn-outline-secondary" href="?@(string.IsNullOrEmpty(Model.Building) ? "" : $"building={Uri.EscapeDataString(Model.Building)}")">Refresh</a>
+        <a class="btn btn-outline-secondary" asp-page-handler="Csv" asp-route-building="@Model.Building">@Icons.Svg("download", 15) CSV</a>
+        <button type="button" class="btn btn-danger" onclick="window.print()">@Icons.Svg("printer", 15) Print roll call</button>
+    </div>
+</div>
+
+<div class="evac-summary mb-3">
+    <div class="evac-total">
+        <span class="evac-total-num">@Model.Shown</span>
+        <span class="evac-total-label">visitor@(Model.Shown == 1 ? "" : "s") on site@(string.IsNullOrEmpty(Model.Building) ? "" : $" in {Model.Building}")</span>
+    </div>
+    <div class="evac-accounted d-print-none" aria-live="polite">
+        <span class="evac-total-num" id="evac-accounted">0</span>
+        <span class="evac-total-label">accounted for</span>
+        <span class="evac-total-num text-danger ms-3" id="evac-missing">@Model.Shown</span>
+        <span class="evac-total-label">still to find</span>
+        <button type="button" class="btn btn-sm btn-link" id="evac-reset">Clear ticks</button>
+    </div>
+    @if (Model.Summary.Count > 1 || !string.IsNullOrEmpty(Model.Building))
+    {
+        <nav class="evac-chips d-print-none" aria-label="Filter by building">
+            <a class="evac-chip @(string.IsNullOrEmpty(Model.Building) ? "active" : "")" asp-page="./Evacuation">All <span>@Model.Total</span></a>
+            @foreach (var (b, n) in Model.Summary)
+            {
+                <a class="evac-chip @(b == Model.Building ? "active" : "")" asp-page="./Evacuation" asp-route-building="@b">@b <span>@n</span></a>
+            }
+        </nav>
+    }
+</div>
+
+@if (Model.Shown == 0)
+{
+    <div class="empty-state">No visitors are checked in@(string.IsNullOrEmpty(Model.Building) ? "" : $" in {Model.Building}").</div>
+}
+
+@foreach (var b in Model.Groups)
+{
+    <section class="evac-building mb-4">
+        <h2 class="evac-building-title">
+            @Icons.Svg("building", 18) @b.Building
+            <span class="section-count">@b.Count</span>
+        </h2>
+        @foreach (var f in b.Floors)
+        {
+            <div class="table-card table-responsive mb-3 evac-floor">
+                <div class="evac-floor-title">@Icons.Svg("layers", 15) @f.Floor <span class="text-muted">· @f.Visitors.Count</span></div>
+                <table class="table table-sm align-middle mb-0">
+                    <thead>
+                        <tr>
+                            <th class="evac-check-col" title="Accounted for">✓</th>
+                            <th>Visitor</th><th>Company</th><th>Host</th><th>Purpose</th><th>In</th><th>Expected out</th><th>Badge</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var v in f.Visitors)
+                        {
+                            <tr class="evac-row" data-id="@v.Id">
+                                <td class="evac-check-col">
+                                    <input type="checkbox" class="form-check-input evac-check" aria-label="@v.VisitorName accounted for" />
+                                </td>
+                                <td><partial name="_VisitorCell" model="@(new VisitCardModel(v, VisitCardContext.OnSite, Model.Blacklisted.Contains(v.Id)))" /></td>
+                                <td>@v.Company</td>
+                                <td>
+                                    @v.Employee?.Name
+                                    @if (!string.IsNullOrEmpty(v.Employee?.Phone))
+                                    {
+                                        <div class="small text-muted">@v.Employee.Phone</div>
+                                    }
+                                </td>
+                                <td><span class="purpose-pill @Format.PurposeClass(v.Purpose)">@v.Purpose</span></td>
+                                <td class="text-nowrap">@v.CheckedInAt?.ToString("t")</td>
+                                <td class="text-nowrap @(v.IsOverstaying ? "text-danger" : "")">@v.ExpectedCheckOutAt?.ToString("t")</td>
+                                <td><code>@v.BadgeNumber</code></td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        }
+    </section>
+}
+
+<p class="small text-muted evac-note">
+    This list covers visitors only. Staff and contractors who don't check in through the kiosk need their own roll call.
+    Ticks are kept in this browser only; print the list to take it to the assembly point.
+</p>
+
+@section Scripts {
+    <script>
+        (() => {
+            const key = 'vms-evac:@(Tenancy.Slug):@DateTime.Today.ToString("yyyyMMdd")';
+            const boxes = [...document.querySelectorAll('.evac-check')];
+            let ticked = new Set();
+            try { ticked = new Set(JSON.parse(localStorage.getItem(key) || '[]')); } catch (e) { }
+            const save = () => { try { localStorage.setItem(key, JSON.stringify([...ticked])); } catch (e) { } };
+            const update = () => {
+                let n = 0;
+                boxes.forEach(b => {
+                    const row = b.closest('.evac-row');
+                    row.classList.toggle('is-accounted', b.checked);
+                    if (b.checked) n++;
+                });
+                document.getElementById('evac-accounted').textContent = n;
+                document.getElementById('evac-missing').textContent = boxes.length - n;
+            };
+            boxes.forEach(b => {
+                const id = b.closest('.evac-row').dataset.id;
+                b.checked = ticked.has(id);
+                b.addEventListener('change', () => { b.checked ? ticked.add(id) : ticked.delete(id); save(); update(); });
+            });
+            document.getElementById('evac-reset').addEventListener('click', async () => {
+                if (!await window.VmsMessages.ask('Clear all ticks on this roll call?', { confirmLabel: 'Clear ticks' })) return;
+                ticked.clear(); boxes.forEach(b => b.checked = false); save(); update();
+            });
+            update();
+        })();
+    </script>
+}

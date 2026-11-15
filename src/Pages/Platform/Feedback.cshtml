@@ -1,0 +1,108 @@
+@page
+@model VisitorManagement.Pages.Platform.FeedbackModel
+@using VisitorManagement.Models
+@using Fb = VisitorManagement.Pages.Feedback.IndexModel
+@{
+    ViewData["Title"] = "Feedback";
+}
+
+<div class="page-header">
+    <div>
+        <h1 class="page-title">Feedback</h1>
+        <p class="text-muted mb-0 small">
+            From all organisations.
+            @foreach (var s in Enum.GetValues<FeedbackStatus>())
+            {
+                <span class="ms-2">@Fb.StatusLabel(s): <strong>@Model.Counts.GetValueOrDefault(s)</strong></span>
+            }
+            @if (Model.AverageRating is { } avg)
+            {
+                <span class="ms-2">Average rating: <strong>@avg.ToString("0.0")</strong> ★</span>
+            }
+        </p>
+    </div>
+</div>
+
+<form method="get" class="card card-body mb-3">
+    <div class="row g-2 align-items-end">
+        <div class="col-sm-6 col-lg-3">
+            <label class="form-label small" for="f-status">Status</label>
+            <select id="f-status" name="Status" class="form-select form-select-sm">
+                <option value="">All</option>
+                @foreach (var s in Enum.GetValues<FeedbackStatus>())
+                {
+                    <option value="@s" selected="@(Model.Status == s)">@Fb.StatusLabel(s)</option>
+                }
+            </select>
+        </div>
+        <div class="col-sm-6 col-lg-2">
+            <label class="form-label small" for="f-cat">Type</label>
+            <select id="f-cat" name="Category" class="form-select form-select-sm">
+                <option value="">All</option>
+                @foreach (var c in Enum.GetValues<FeedbackCategory>())
+                {
+                    <option value="@c" selected="@(Model.Category == c)">@c</option>
+                }
+            </select>
+        </div>
+        <div class="col-sm-6 col-lg-3">
+            <label class="form-label small" for="f-tenant">Organisation</label>
+            <select id="f-tenant" name="Tenant" class="form-select form-select-sm">
+                <option value="">All</option>
+                @foreach (var t in Model.Tenants)
+                {
+                    <option value="@t.Id" selected="@(Model.Tenant == t.Id)">@t.Name</option>
+                }
+            </select>
+        </div>
+        <div class="col-sm-6 col-lg-2">
+            <label class="form-label small" for="f-q">Search</label>
+            <input id="f-q" name="Q" value="@Model.Q" class="form-control form-control-sm" />
+        </div>
+        <div class="col-lg-2 d-flex gap-2">
+            <button class="btn btn-sm btn-primary">Filter</button>
+            <a href="/platform/feedback" class="btn btn-sm btn-link">Reset</a>
+        </div>
+    </div>
+</form>
+
+@if (!Model.Rows.Any())
+{
+    <div class="empty-state">No feedback matches.</div>
+}
+@foreach (var r in Model.Rows)
+{
+    var f = r.Feedback;
+    <div class="card card-body mb-2 feedback-item">
+        <div class="d-flex flex-wrap justify-content-between gap-2">
+            <div>
+                <strong>#@f.Id @f.Subject</strong>
+                <span class="badge text-bg-light border ms-1">@f.Category</span>
+                @if (f.Rating is { } rating) { <span class="text-warning ms-1" title="@rating of 5">@(new string('★', rating))</span> }
+            </div>
+            <span class="badge @Fb.StatusClass(f.Status) align-self-start">@Fb.StatusLabel(f.Status)</span>
+        </div>
+        <div class="small text-muted mb-1">
+            <a href="/@r.TenantSlug/" target="_blank" rel="noopener">@r.TenantName</a> ·
+            @f.SubmittedBy @(f.SubmittedByEmail is { } e ? $"<{e}>" : "") · @f.CreatedAt.ToString("g")
+            @if (!string.IsNullOrEmpty(f.PageUrl)) { <span>· page <code>@f.PageUrl</code></span> }
+        </div>
+        <div class="small feedback-text mb-2">@f.Message</div>
+        <form method="post" asp-page-handler="Update" asp-route-id="@f.Id" asp-route-status="@Model.Status"
+              asp-route-category="@Model.Category" asp-route-tenant="@Model.Tenant" asp-route-q="@Model.Q" class="row g-2 align-items-start">
+            <div class="col-md-3">
+                <select name="status" class="form-select form-select-sm" aria-label="Status of feedback @f.Id">
+                    @foreach (var s in Enum.GetValues<FeedbackStatus>())
+                    {
+                        <option value="@s" selected="@(f.Status == s)">@Fb.StatusLabel(s)</option>
+                    }
+                </select>
+            </div>
+            <div class="col-md-7">
+                <textarea name="response" class="form-control form-control-sm" rows="1" maxlength="2000"
+                          placeholder="Reply to the organisation (optional)" aria-label="Reply">@f.Response</textarea>
+            </div>
+            <div class="col-md-2"><button class="btn btn-sm btn-outline-primary w-100">Save</button></div>
+        </form>
+    </div>
+}

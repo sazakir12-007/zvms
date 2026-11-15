@@ -1,0 +1,237 @@
+@inject VisitorManagement.Services.SettingsService Settings
+@inject VisitorManagement.Services.LicenseService License
+@using VisitorManagement.Models
+@{
+    var currentPage = ViewContext.RouteData.Values["page"] as string ?? "";
+    bool IsActive(string page, string[] also) => currentPage == page || also.Contains(currentPage);
+
+    // Items for features outside the tenant's license package are hidden.
+    var plan = await License.GetStatusAsync();
+    var nav = new (string Page, string Label, string Icon, string[] AlsoActiveFor, Feature? Feature)[]
+    {
+        ("/Index", "Dashboard", "dashboard", [], null),
+        ("/CheckIn", "Check in", "check-in", ["/Visits/Badge"], null),
+        ("/Appointments/Index", "Appointments", "calendar", ["/Appointments/New"], Feature.Appointments),
+        ("/Reports/Evacuation", "Evacuation", "siren", [], null),
+    }.Where(n => n.Feature is not { } f || plan.Has(f)).ToArray();
+
+    // Grouped under "Admin" in the sidebar. AdminOnly items are hidden from Reception staff.
+    var isAdmin = User.IsInRole(VisitorManagement.Models.StaffRoles.Admin);
+    var admin = new (string Page, string Label, string Icon, string[] AlsoActiveFor, bool AdminOnly, Feature? Feature)[]
+    {
+        ("/Visits/Index", "Visitor log", "log", [], false, null),
+        ("/Reports/Index", "Reports", "chart", [], false, Feature.Reports),
+        ("/Blacklist/Index", "Blacklist", "ban", ["/Blacklist/Add"], false, Feature.Blacklist),
+        ("/Employees/Index", "Hosts", "users", ["/Employees/Import"], true, null),
+        ("/Admin/Users", "Staff users", "shield", [], true, null),
+        ("/Admin/Lists", "Dropdown lists", "sliders", [], true, null),
+        ("/Admin/Fields", "Form fields", "list", [], true, null),
+        ("/Admin/Branding", "Branding", "image", [], true, Feature.CustomBranding),
+        ("/Admin/Passes", "Pass templates", "badge", [], true, Feature.PassTemplates),
+        ("/Admin/Export", "Data export", "download", [], true, null),
+        ("/Plan/Index", "Plan & usage", "package", [], false, null),
+        ("/Feedback/Index", "Feedback", "message", [], false, null),
+    }.Where(a => (isAdmin || !a.AdminOnly) && (a.Feature is not { } f || plan.Has(f))).ToArray();
+    var adminActive = admin.Any(a => IsActive(a.Page, a.AlsoActiveFor));
+
+    var brand = await Settings.GetBrandingAsync();
+    var userName = User.Identity?.Name ?? "";
+    var userRole = User.FindFirst(System.Security.Claims.ClaimTypes.Role)?.Value;
+    var userEmail = User.FindFirst(System.Security.Claims.ClaimTypes.Email)?.Value;
+}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>@ViewData["Title"] - @brand.CompanyName</title>
+    @* Apply the saved sidebar state before first paint so it doesn't flicker. *@
+    <script>
+        try { if (localStorage.getItem('vms-sidebar') === 'collapsed') document.documentElement.classList.add('sidebar-collapsed'); } catch (e) { }
+    </script>
+    <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css" />
+    <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
+    <link rel="stylesheet" href="~/css/theme.css" asp-append-version="true" />
+    <link rel="stylesheet" href="@Tenancy.Url("/lookups/purposes.css")" />
+    <link rel="stylesheet" href="~/VisitorManagement.styles.css" asp-append-version="true" />
+</head>
+<body>
+    <header class="app-topbar banner-@brand.Style.ToString().ToLowerInvariant() d-print-none">
+        <a class="app-brand" asp-page="/Index" aria-label="@brand.CompanyName: dashboard">
+            <partial name="_BrandMark" model="brand" />
+        </a>
+
+        <div class="topbar-actions">
+            <form class="topbar-search" action="@Url.Page("/Visits/Index")" method="get" role="search">
+                @Icons.Svg("search", 16)
+                <input type="search" name="Search" id="global-search" placeholder="Search visitors" aria-label="Search visitors by name, phone, company or badge" autocomplete="off" />
+                @* Search the last year rather than the log's default 30 days. *@
+                <input type="hidden" name="From" value="@DateTime.Today.AddYears(-1).ToString("yyyy-MM-dd")" />
+                <kbd class="topbar-kbd" aria-hidden="true">/</kbd>
+            </form>
+
+            <a class="topbar-btn" asp-page="/Help" title="Help" aria-label="Help">@Icons.Svg("help", 19)</a>
+
+            <partial name="_RecentMessages" />
+
+            <div class="dropdown">
+                <button type="button" class="topbar-btn notif-btn" data-bs-toggle="dropdown" data-bs-auto-close="outside" data-url="@Tenancy.Url("/notifications")"
+                        aria-expanded="false" aria-label="Notifications" title="Notifications">
+                    @Icons.Svg("bell", 19)
+                    <span class="notif-count" hidden>0</span>
+                </button>
+                <div class="dropdown-menu dropdown-menu-end notif-menu">
+                    <div class="notif-header">
+                        <strong>Notifications</strong>
+                        <span class="notif-summary small text-muted"></span>
+                    </div>
+                    <div class="notif-list" aria-live="polite">
+                        <div class="notif-empty">Loading…</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="dropdown">
+                <button type="button" class="topbar-profile" data-bs-toggle="dropdown" aria-expanded="false" aria-label="Account menu">
+                    <span class="avatar">@Format.Initials(userName)</span>
+                    <span class="profile-text">
+                        <span class="profile-name">@userName</span>
+                        <span class="profile-role">@userRole</span>
+                    </span>
+                    @Icons.Svg("chevron-down", 14)
+                </button>
+                <ul class="dropdown-menu dropdown-menu-end profile-menu">
+                    <li class="profile-menu-head">
+                        <span class="avatar avatar-lg">@Format.Initials(userName)</span>
+                        <span class="min-w-0">
+                            <strong>@userName</strong>
+                            <span class="d-block small text-muted text-truncate">@userEmail</span>
+                            <span class="d-block small text-muted">@userRole</span>
+                        </span>
+                    </li>
+                    <li><hr class="dropdown-divider" /></li>
+                    <li><a class="dropdown-item" asp-page="/Profile">@Icons.Svg("user", 15) My profile</a></li>
+                    <li><a class="dropdown-item" asp-page="/Plan/Index">@Icons.Svg("package", 15) Plan &amp; usage</a></li>
+                    <li><a class="dropdown-item" asp-page="/Account/ChangePassword" asp-route-returnUrl="@(Context.Request.PathBase + Context.Request.Path + Context.Request.QueryString)">@Icons.Svg("key", 15) Change password</a></li>
+                    @if (isAdmin)
+                    {
+                        <li><hr class="dropdown-divider" /></li>
+                        <li><a class="dropdown-item" asp-page="/Admin/Users">@Icons.Svg("shield", 15) Staff users</a></li>
+                        @if (plan.Has(Feature.CustomBranding))
+                        {
+                            <li><a class="dropdown-item" asp-page="/Admin/Branding">@Icons.Svg("image", 15) Branding</a></li>
+                        }
+                        <li><a class="dropdown-item" asp-page="/Admin/Lists">@Icons.Svg("sliders", 15) Dropdown lists</a></li>
+                    }
+                    <li><hr class="dropdown-divider" /></li>
+                    <li><a class="dropdown-item" asp-page="/Help">@Icons.Svg("help", 15) Help &amp; shortcuts</a></li>
+                    <li><a class="dropdown-item" asp-page="/Feedback/Index" asp-route-from="@(Context.Request.PathBase + Context.Request.Path)">@Icons.Svg("message", 15) Send feedback</a></li>
+                    <li>
+                        <form method="post" asp-page="/Account/Logout" class="m-0">
+                            <button class="dropdown-item dropdown-item-danger">@Icons.Svg("check-out", 15) Sign out</button>
+                        </form>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </header>
+
+    <aside class="app-sidebar d-print-none" aria-label="Main navigation">
+        <nav class="app-nav">
+            @foreach (var item in nav)
+            {
+                var active = IsActive(item.Page, item.AlsoActiveFor);
+                <a class="side-link @(active ? "active" : "")" asp-page="@item.Page" data-label="@item.Label"
+                   aria-current="@(active ? "page" : null)">
+                    @Icons.Svg(item.Icon, 20)
+                    <span class="side-label">@item.Label</span>
+                </a>
+            }
+
+            @* Admin group: opens automatically on its pages; otherwise remembers open/closed (site.js).
+               With the sidebar collapsed, its items show as a flyout on hover/focus. *@
+            <div class="side-group @(adminActive ? "open has-active" : "")" data-group="admin">
+                <button type="button" class="side-link side-group-toggle @(adminActive ? "child-active" : "")"
+                        data-label="Admin" aria-expanded="@(adminActive ? "true" : "false")" aria-controls="side-admin">
+                    @Icons.Svg("sliders", 20)
+                    <span class="side-label">Admin</span>
+                    <span class="side-caret">@Icons.Svg("chevron-down", 16)</span>
+                </button>
+                <div class="side-sub" id="side-admin" role="group" aria-label="Admin">
+                    <div class="side-sub-title">Admin</div>
+                    @foreach (var item in admin)
+                    {
+                        var active = IsActive(item.Page, item.AlsoActiveFor);
+                        <a class="side-sublink @(active ? "active" : "")" asp-page="@item.Page"
+                           aria-current="@(active ? "page" : null)">
+                            @Icons.Svg(item.Icon, 16)
+                            <span>@item.Label</span>
+                        </a>
+                    }
+                </div>
+            </div>
+        </nav>
+        <button type="button" class="side-link side-collapse" id="sidebar-collapse"
+                data-label="Expand" aria-label="Collapse sidebar" aria-expanded="true">
+            @Icons.Svg("chevrons-left", 20)
+            <span class="side-label">Collapse</span>
+        </button>
+    </aside>
+
+    <div class="app-main">
+        <main role="main">
+            @{
+                var sub = plan.Subscription;
+            }
+            @if (sub is VisitorManagement.Services.SubscriptionState.ExpiringSoon or VisitorManagement.Services.SubscriptionState.Grace or VisitorManagement.Services.SubscriptionState.Expired
+                 && currentPage != "/Plan/Index")
+            {
+                var until = plan.ValidUntil!.Value;
+                <div class="alert @(sub == VisitorManagement.Services.SubscriptionState.ExpiringSoon ? "alert-warning" : "alert-danger") d-flex align-items-center gap-2 py-2 plan-alert" role="status">
+                    @Icons.Svg("alert", 18)
+                    <span class="flex-grow-1">
+                        @switch (sub)
+                        {
+                            case VisitorManagement.Services.SubscriptionState.Expired:
+                                <text><strong>Subscription expired.</strong> Visitor check-in is paused until it's renewed.</text>
+                                break;
+                            case VisitorManagement.Services.SubscriptionState.Grace:
+                                <text><strong>Subscription ended on @until.ToString("d MMM").</strong> Check-in stops after @VisitorManagement.Services.Subscription.GraceEnds(until).ToString("d MMM").</text>
+                                break;
+                            default:
+                                <text><strong>Subscription ends on @until.ToString("d MMM").</strong> @VisitorManagement.Services.Subscription.DaysLeft(until) day(s) left.</text>
+                                break;
+                        }
+                    </span>
+                    <a asp-page="/Plan/Index" class="alert-link text-nowrap">@(isAdmin ? "Renew" : "View plan")</a>
+                </div>
+            }
+            @if (!plan.Unlimited && currentPage != "/Plan/Index" && (plan.RemainingCheckIns == 0 || plan.RunningLow))
+            {
+                <div class="alert @(plan.RemainingCheckIns == 0 ? "alert-danger" : "alert-warning") d-flex align-items-center gap-2 py-2 plan-alert" role="status">
+                    @Icons.Svg("alert", 18)
+                    <span class="flex-grow-1">
+                        @if (plan.RemainingCheckIns == 0)
+                        {
+                            <text><strong>Check-in is paused.</strong> This month's check-in allowance on the @plan.Package!.Name plan is used up.</text>
+                        }
+                        else
+                        {
+                            <text><strong>Running low:</strong> @plan.RemainingCheckIns.ToString("N0") check-ins left this month.</text>
+                        }
+                    </span>
+                    <a asp-page="/Plan/Index" class="alert-link text-nowrap">@(isAdmin ? "Buy credit" : "View plan")</a>
+                </div>
+            }
+            <partial name="_PageMessages" model="true" />
+            @RenderBody()
+        </main>
+    </div>
+
+    <script src="~/lib/jquery/dist/jquery.min.js"></script>
+    <script src="~/lib/bootstrap/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="~/js/site.js" asp-append-version="true"></script>
+
+    @await RenderSectionAsync("Scripts", required: false)
+</body>
+</html>

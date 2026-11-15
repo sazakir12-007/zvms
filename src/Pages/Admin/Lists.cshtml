@@ -1,0 +1,162 @@
+@page
+@model VisitorManagement.Pages.Admin.ListsModel
+@{
+    ViewData["Title"] = "Dropdown lists";
+    string TabIcon(LookupCategory c) => c switch
+    {
+        LookupCategory.Purpose => "badge",
+        LookupCategory.Department => "building",
+        LookupCategory.StayDuration => "hourglass",
+        LookupCategory.Building => "building",
+        LookupCategory.Floor => "layers",
+        _ => "scan"
+    };
+}
+
+<div class="page-header">
+    <div>
+        <h1 class="page-title">Dropdown lists</h1>
+        <p class="text-muted mb-0">Manage the options in every dropdown. Hosts are managed on the <a asp-page="/Employees/Index">Hosts</a> page.</p>
+    </div>
+</div>
+
+@* One tab per list. The active tab is kept in the URL (#list-Purpose), so saving returns to it. *@
+<ul class="nav nav-tabs lists-tabs" role="tablist">
+    @foreach (var s in Model.Sections)
+    {
+        var first = s == Model.Sections[0];
+        <li class="nav-item" role="presentation">
+            <button class="nav-link @(first ? "active" : "")" id="tab-@s.Category" type="button" role="tab"
+                    data-bs-toggle="tab" data-bs-target="#list-@s.Category" aria-controls="list-@s.Category"
+                    aria-selected="@(first ? "true" : "false")">
+                @Icons.Svg(TabIcon(s.Category), 15)
+                <span>@s.Title</span>
+                <span class="lists-tab-count" title="Active options">@s.Rows.Count(r => r.Item.IsActive)</span>
+            </button>
+        </li>
+    }
+</ul>
+
+<div class="tab-content lists-tab-content">
+@foreach (var list in Model.Sections)
+{
+    var isPurpose = list.Category == LookupCategory.Purpose;
+    var isStay = list.Category == LookupCategory.StayDuration;
+    var first = list == Model.Sections[0];
+    <section class="admin-card tab-pane fade @(first ? "show active" : "")" id="list-@list.Category" role="tabpanel" aria-labelledby="tab-@list.Category" tabindex="0">
+        <header class="admin-card-header">
+            <h2 class="section-title">@list.Title</h2>
+            <p class="small text-muted mb-0">@list.Description</p>
+        </header>
+
+        <div class="lookup-list">
+            @if (!list.Rows.Any())
+            {
+                <div class="text-muted small p-3">No options yet. Add one below.</div>
+            }
+            @for (var i = 0; i < list.Rows.Count; i++)
+            {
+                var row = list.Rows[i];
+                var item = row.Item;
+                var formId = $"edit-{item.Id}";
+                <div class="lookup-row @(item.IsActive ? "" : "is-inactive")">
+                    <div class="lookup-order">
+                        <form method="post" asp-page-handler="Move" asp-route-id="@item.Id" asp-route-category="@list.Category" asp-route-direction="-1">
+                            <button class="icon-btn" title="Move up" aria-label="Move @item.Name up" disabled="@(i == 0)">@Icons.Svg("arrow-up", 14)</button>
+                        </form>
+                        <form method="post" asp-page-handler="Move" asp-route-id="@item.Id" asp-route-category="@list.Category" asp-route-direction="1">
+                            <button class="icon-btn" title="Move down" aria-label="Move @item.Name down" disabled="@(i == list.Rows.Count - 1)">@Icons.Svg("arrow-down", 14)</button>
+                        </form>
+                    </div>
+
+                    <form method="post" asp-page-handler="Update" asp-route-id="@item.Id" asp-route-category="@list.Category" id="@formId" class="lookup-edit">
+                        @if (isPurpose)
+                        {
+                            <input type="color" name="color" value="@(item.Color ?? "#6c757d")" class="form-control form-control-color lookup-color" title="Badge colour" aria-label="Colour for @item.Name" />
+                        }
+                        @if (isStay)
+                        {
+                            <div class="input-group input-group-sm lookup-minutes">
+                                <input type="number" name="minutes" value="@item.Minutes" min="@ExpectedStay.MinMinutes" max="@ExpectedStay.MaxMinutes" step="5" class="form-control" aria-label="Minutes" required />
+                                <span class="input-group-text">min</span>
+                            </div>
+                            <span class="lookup-preview small text-muted">@item.Name</span>
+                        }
+                        else
+                        {
+                            <input name="name" value="@item.Name" class="form-control form-control-sm" maxlength="50" aria-label="Name" required />
+                        }
+                        @if (isPurpose)
+                        {
+                            <span class="purpose-pill @Format.PurposeClass(item.Name) lookup-sample" aria-hidden="true">@item.Name</span>
+                        }
+                        <div class="form-check form-switch m-0" title="Inactive options are hidden from new entries but kept on existing records">
+                            <input class="form-check-input" type="checkbox" role="switch" name="isActive" value="true" id="active-@item.Id" checked="@item.IsActive" />
+                            <label class="form-check-label small" for="active-@item.Id">Active</label>
+                        </div>
+                        <button class="btn btn-sm btn-outline-primary lookup-save">Save</button>
+                    </form>
+
+                    <div class="lookup-meta">
+                        @if (row.Usage > 0)
+                        {
+                            <span class="small text-muted" title="Records using this option">@row.Usage used</span>
+                        }
+                        else
+                        {
+                            <form method="post" asp-page-handler="Delete" asp-route-id="@item.Id" asp-route-category="@list.Category"
+                                  data-confirm="Delete this option?">
+                                <button class="icon-btn icon-btn-danger" title="Delete" aria-label="Delete @item.Name">@Icons.Svg("trash", 14)</button>
+                            </form>
+                        }
+                    </div>
+                </div>
+            }
+        </div>
+
+        <form method="post" asp-page-handler="Add" asp-route-category="@list.Category" class="lookup-add">
+            @if (isPurpose)
+            {
+                <input type="color" name="color" value="#0ea5e9" class="form-control form-control-color lookup-color" title="Badge colour" aria-label="Colour for new purpose" />
+            }
+            @if (isStay)
+            {
+                <div class="input-group input-group-sm lookup-minutes">
+                    <input type="number" name="minutes" min="@ExpectedStay.MinMinutes" max="@ExpectedStay.MaxMinutes" step="5" class="form-control" placeholder="e.g. 45" aria-label="Minutes for new option" required />
+                    <span class="input-group-text">min</span>
+                </div>
+            }
+            else
+            {
+                <input name="name" class="form-control form-control-sm" maxlength="50" placeholder="New option…" aria-label="New option name" required />
+            }
+            <button class="btn btn-sm btn-primary">@Icons.Svg("plus", 14) Add</button>
+        </form>
+    </section>
+}
+</div>
+
+@section Scripts {
+    <script>
+        // Open the tab named in the URL (after a save we return to #list-<Category>), and keep the URL
+        // in step as tabs change so refresh / back stay on the same list.
+        (function () {
+            var hash = location.hash;
+            if (hash && document.querySelector('.lists-tabs [data-bs-target="' + CSS.escape(hash) + '"]')) {
+                bootstrap.Tab.getOrCreateInstance(document.querySelector('.lists-tabs [data-bs-target="' + CSS.escape(hash) + '"]')).show();
+            }
+            document.querySelectorAll('.lists-tabs [data-bs-toggle="tab"]').forEach(function (btn) {
+                btn.addEventListener('shown.bs.tab', function () {
+                    history.replaceState(null, '', btn.dataset.bsTarget);
+                });
+            });
+        })();
+
+        // Highlight the Save button only once a row has been changed.
+        document.querySelectorAll('.lookup-edit').forEach(function (form) {
+            var save = form.querySelector('.lookup-save');
+            form.addEventListener('input', function () { save.classList.replace('btn-outline-primary', 'btn-primary'); });
+            form.addEventListener('change', function () { save.classList.replace('btn-outline-primary', 'btn-primary'); });
+        });
+    </script>
+}

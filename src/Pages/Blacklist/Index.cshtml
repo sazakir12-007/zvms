@@ -1,0 +1,93 @@
+@page
+@model VisitorManagement.Pages.Blacklist.IndexModel
+@{
+    ViewData["Title"] = "Blacklist";
+}
+
+<div class="page-header">
+    <h1 class="page-title">Blacklist</h1>
+    <a class="btn btn-danger" asp-page="./Add">@Icons.Svg("ban", 16) Blacklist a visitor</a>
+</div>
+
+@if (Model.OnSite.Any())
+{
+    <div class="alert alert-danger d-flex gap-3 align-items-start">
+        @Icons.Svg("alert", 22)
+        <div>
+            <strong>@Model.OnSite.Count blacklisted visitor(s) on site now:</strong>
+            @string.Join(", ", Model.OnSite.Select(v => $"{v.VisitorName} (host {v.Employee?.Name}, badge {v.BadgeNumber})"))
+        </div>
+    </div>
+}
+
+<section class="mb-4">
+    <div class="section-header">
+        <h2 class="section-title">Active <span class="section-count">@Model.Active.Count</span></h2>
+    </div>
+    @if (!Model.Active.Any())
+    {
+        <div class="empty-state">Nobody is blacklisted.</div>
+    }
+    else
+    {
+        <div class="table-card table-responsive">
+            <table class="table table-hover mb-0 align-middle">
+                <thead><tr><th>Visitor</th><th>Mobile</th><th>Reason</th><th>Added</th><th></th></tr></thead>
+                <tbody>
+                @foreach (var b in Model.Active)
+                {
+                    <tr>
+                        <td>
+                            <div class="d-flex align-items-center gap-2">
+                                @if (b.VisitId is { } vid)
+                                {
+                                    <img class="visitor-thumb" src="@Tenancy.Url($"/visits/{vid}/photo")" alt="" loading="lazy"
+                                         onerror="this.replaceWith(Object.assign(document.createElement('span'), { className: 'visitor-thumb visitor-thumb-empty' }))" />
+                                }
+                                else
+                                {
+                                    <span class="visitor-thumb visitor-thumb-empty"></span>
+                                }
+                                <span>@b.Name</span>
+                            </div>
+                        </td>
+                        <td class="text-nowrap">@b.Phone</td>
+                        <td class="small">@b.Reason</td>
+                        <td class="text-nowrap small text-muted">@b.CreatedAt.ToString("g")</td>
+                        <td class="text-end">
+                            <form method="post" asp-page-handler="Remove" asp-route-id="@b.Id"
+                                  data-confirm="Remove this visitor from the blacklist? They will be able to check in again.">
+                                <button class="btn btn-sm btn-outline-secondary text-nowrap">Remove</button>
+                            </form>
+                        </td>
+                    </tr>
+                }
+                </tbody>
+            </table>
+        </div>
+    }
+</section>
+
+@if (Model.Removed.Any())
+{
+    <details>
+        <summary class="section-title mb-2">Recently removed (@Model.Removed.Count)</summary>
+        <div class="table-card table-responsive">
+            <table class="table table-sm mb-0 align-middle text-muted">
+                <thead><tr><th>Visitor</th><th>Mobile</th><th>Reason</th><th>Added</th><th>Removed</th></tr></thead>
+                <tbody>
+                @foreach (var b in Model.Removed)
+                {
+                    <tr>
+                        <td>@b.Name</td>
+                        <td>@b.Phone</td>
+                        <td class="small">@b.Reason</td>
+                        <td class="small">@b.CreatedAt.ToString("g")</td>
+                        <td class="small">@b.RemovedAt?.ToString("g")</td>
+                    </tr>
+                }
+                </tbody>
+            </table>
+        </div>
+    </details>
+}

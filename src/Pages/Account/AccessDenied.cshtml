@@ -1,0 +1,8 @@
+@page
+@{
+    ViewData["Title"] = "No access";
+}
+
+<h1 class="auth-title">You don't have access to that page</h1>
+<p class="auth-sub">It's only available to administrators. If you need it, ask an admin to change your role.</p>
+<a href="@Tenancy.Home" class="btn btn-primary w-100">Back to the dashboard</a>

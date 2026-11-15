@@ -1,0 +1,207 @@
+@page
+@model VisitorManagement.Pages.Platform.TenantsModel
+@using VisitorManagement.Models
+@{
+    ViewData["Title"] = "Organisations";
+    var filterPackage = Model.Packages.FirstOrDefault(p => p.Id == Model.PackageFilter);
+    var host = ViewContext.HttpContext.Request.Host.ToString();
+}
+
+<div class="page-header">
+    <div>
+        <h1 class="page-title">Organisations</h1>
+        <p class="text-muted mb-0 small">Each organisation has its own URL, staff, hosts, visitors and settings. Their data is kept separate from every other organisation.</p>
+    </div>
+</div>
+
+<form method="post" asp-page-handler="Create" class="card card-body mb-3">
+    <h2 class="section-title mb-2">New organisation</h2>
+    <div asp-validation-summary="ModelOnly" class="alert alert-danger" role="alert"></div>
+    <div class="row g-2">
+        <div class="col-md-2">
+            <label asp-for="New.Slug" class="form-label"></label>
+            <div class="input-group">
+                <span class="input-group-text">/</span>
+                <input asp-for="New.Slug" class="form-control" placeholder="acme" autocapitalize="none" spellcheck="false" pattern="[a-z0-9][a-z0-9-]{1,29}" />
+            </div>
+            <span asp-validation-for="New.Slug" class="text-danger"></span>
+        </div>
+        <div class="col-md-2">
+            <label asp-for="New.Name" class="form-label"></label>
+            <input asp-for="New.Name" class="form-control" placeholder="Acme Corporation" />
+            <span asp-validation-for="New.Name" class="text-danger"></span>
+        </div>
+        <div class="col-md-2">
+            <label asp-for="New.AdminName" class="form-label"></label>
+            <input asp-for="New.AdminName" class="form-control" />
+            <span asp-validation-for="New.AdminName" class="text-danger"></span>
+        </div>
+        <div class="col-md-2">
+            <label asp-for="New.AdminEmail" class="form-label"></label>
+            <input asp-for="New.AdminEmail" class="form-control" autocomplete="off" />
+            <span asp-validation-for="New.AdminEmail" class="text-danger"></span>
+        </div>
+        <div class="col-md-2">
+            <label asp-for="New.AdminPassword" class="form-label"></label>
+            <input asp-for="New.AdminPassword" class="form-control" autocomplete="new-password" />
+            <span asp-validation-for="New.AdminPassword" class="text-danger"></span>
+        </div>
+        <div class="col-md-2">
+            <label asp-for="New.PackageId" class="form-label"></label>
+            <select asp-for="New.PackageId" class="form-select" required>
+                <option value="">Choose…</option>
+                @foreach (var p in Model.Packages.Where(p => p.IsActive))
+                {
+                    <option value="@p.Id">@p.Name – @Format.Money(p.BasePricePerMonth)/mo</option>
+                }
+            </select>
+            <span asp-validation-for="New.PackageId" class="text-danger"></span>
+        </div>
+        <div class="col-md-2">
+            <label asp-for="New.ValidUntil" class="form-label"></label>
+            <input asp-for="New.ValidUntil" type="date" class="form-control" />
+            <div class="form-text">Default: @VisitorManagement.Services.Subscription.TrialDays-day trial. Empty = no expiry.</div>
+        </div>
+    </div>
+    <div class="form-text">ID: @Tenant.SlugRules It becomes the address, e.g. <code>@host/acme</code>. The admin must change the temporary password at first sign-in.</div>
+    <div class="mt-2"><button class="btn btn-primary">@Icons.Svg("plus", 14) Create organisation</button></div>
+</form>
+
+@if (filterPackage is not null)
+{
+    <div class="alert alert-info py-2 d-flex justify-content-between align-items-center">
+        <span>Showing organisations on the <strong>@filterPackage.Name</strong> package.</span>
+        <a href="/platform/tenants" class="alert-link">Show all</a>
+    </div>
+}
+
+<div class="table-card table-responsive">
+    <table class="table table-hover align-middle mb-0">
+        <thead><tr><th>Organisation</th><th>ID (URL)</th><th class="text-end">Staff</th><th class="text-end">Hosts</th><th class="text-end">Visits</th><th>Last visit</th><th>Package</th><th>Valid until</th><th>This month</th><th>Active</th><th></th></tr></thead>
+        <tbody>
+        @foreach (var r in Model.Rows)
+        {
+            var t = r.Tenant;
+            var formId = $"tenant-{t.Id}";
+            <tr class="@(t.IsActive ? "" : "text-muted")">
+                <td>
+                    <form method="post" asp-page-handler="Update" asp-route-id="@t.Id" id="@formId"></form>
+                    <input name="name" form="@formId" value="@t.Name" class="form-control form-control-sm" style="min-width: 180px;" aria-label="Name" required />
+                    <div class="small text-muted mt-1">Since @t.CreatedAt.ToString("d")</div>
+                </td>
+                <td>
+                    <div class="input-group input-group-sm" style="width: 170px;">
+                        <span class="input-group-text">/</span>
+                        <input name="slug" form="@formId" value="@t.Slug" class="form-control" aria-label="ID" required pattern="[a-z0-9][a-z0-9-]{1,29}" />
+                    </div>
+                    @if (t.IsActive)
+                    {
+                        <a class="small" href="/@t.Slug/" target="_blank" rel="noopener">Open @host/@t.Slug</a>
+                    }
+                </td>
+                <td class="text-end tabular">@r.Staff</td>
+                <td class="text-end tabular">@r.Hosts</td>
+                <td class="text-end tabular">@r.Visits</td>
+                <td class="small">@(r.LastVisit?.ToString("g") ?? "-")</td>
+                <td>
+                    <form method="post" asp-page-handler="Package" asp-route-id="@t.Id" asp-route-package="@Model.PackageFilter" class="d-flex gap-1 m-0">
+                        <select name="packageId" class="form-select form-select-sm" style="min-width: 120px;" aria-label="License package for @t.Name"
+                                onchange="this.form.querySelector('button').hidden = false">
+                            @if (r.Package is null)
+                            {
+                                <option value="">None</option>
+                            }
+                            @foreach (var p in Model.Packages.Where(p => p.IsActive || p.Id == t.LicensePackageId))
+                            {
+                                <option value="@p.Id" selected="@(p.Id == t.LicensePackageId)">@p.Name@(p.IsActive ? "" : " (inactive)")</option>
+                            }
+                        </select>
+                        <button class="btn btn-sm btn-primary" hidden>Change</button>
+                    </form>
+                </td>
+                <td class="small">
+                    @{
+                        var subState = VisitorManagement.Services.Subscription.State(t.ValidUntil);
+                    }
+                    @if (t.ValidUntil is { } until)
+                    {
+                        <div class="@(subState is VisitorManagement.Services.SubscriptionState.Grace or VisitorManagement.Services.SubscriptionState.Expired ? "text-danger fw-semibold" : subState == VisitorManagement.Services.SubscriptionState.ExpiringSoon ? "text-warning-emphasis fw-semibold" : "")">
+                            @until.ToString("d MMM yyyy")
+                            @(subState switch
+                            {
+                                VisitorManagement.Services.SubscriptionState.Expired => "· expired",
+                                VisitorManagement.Services.SubscriptionState.Grace => "· in grace",
+                                VisitorManagement.Services.SubscriptionState.ExpiringSoon => "· ending soon",
+                                _ => ""
+                            })
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="text-muted">No expiry</div>
+                    }
+                    <details class="grant-credits">
+                        <summary class="small">Change</summary>
+                        <form method="post" asp-page-handler="Validity" asp-route-id="@t.Id" asp-route-package="@Model.PackageFilter" class="d-grid gap-1 mt-1">
+                            <input type="date" name="validUntil" value="@t.ValidUntil?.ToString("yyyy-MM-dd")" class="form-control form-control-sm" aria-label="Valid until" />
+                            <button class="btn btn-sm btn-outline-primary">Set date</button>
+                        </form>
+                        <div class="d-flex flex-wrap gap-1 mt-1">
+                            @foreach (var m in new[] { 1, 3, 12 })
+                            {
+                                <form method="post" asp-page-handler="Validity" asp-route-id="@t.Id" asp-route-package="@Model.PackageFilter" class="m-0">
+                                    <input type="hidden" name="extendMonths" value="@m" />
+                                    <button class="btn btn-sm btn-outline-success">+@m mo</button>
+                                </form>
+                            }
+                            <form method="post" asp-page-handler="Validity" asp-route-id="@t.Id" asp-route-package="@Model.PackageFilter" class="m-0"
+                                  data-confirm="Remove the expiry date for @t.Name?">
+                                <input type="hidden" name="noExpiry" value="true" />
+                                <button class="btn btn-sm btn-outline-secondary">No expiry</button>
+                            </form>
+                        </div>
+                    </details>
+                </td>
+                <td class="small text-nowrap">
+                    @if (r.Package is { } pk)
+                    {
+                        var over = r.Usage.CheckInsThisPeriod >= pk.MaxVisitorsPerMonth;
+                        <div class="@(over ? "text-danger fw-semibold" : "")" title="Check-ins this month / included in base price">
+                            @r.Usage.CheckInsThisPeriod.ToString("N0") / @pk.IncludedVisitors.ToString("N0") check-ins
+                        </div>
+                        <div class="text-muted">
+                            @Format.Money(r.Usage.CreditBalance) credit · @Format.Money(r.CostThisPeriod) this month
+                        </div>
+                    }
+                    else
+                    {
+                        <span class="text-muted">Unlimited</span>
+                    }
+                    <details class="grant-credits">
+                        <summary class="small">Grant credit</summary>
+                        <form method="post" asp-page-handler="Grant" asp-route-id="@t.Id" asp-route-package="@Model.PackageFilter" class="d-grid gap-1 mt-1">
+                            <div class="input-group input-group-sm">
+                                <span class="input-group-text">@Format.CurrencySymbol</span>
+                                <input name="amount" type="number" min="1" max="10000000" step="0.01" class="form-control" placeholder="Amount" aria-label="Credit amount to grant" required />
+                            </div>
+                            <input name="note" maxlength="200" class="form-control form-control-sm" placeholder="Note (optional)" aria-label="Note" />
+                            <button class="btn btn-sm btn-outline-success">Grant free credit</button>
+                        </form>
+                    </details>
+                </td>
+                <td>
+                    <div class="form-check form-switch m-0">
+                        <input class="form-check-input" type="checkbox" role="switch" name="isActive" value="true" form="@formId" checked="@t.IsActive" aria-label="Active" />
+                    </div>
+                </td>
+                <td class="text-end"><button class="btn btn-sm btn-outline-primary" form="@formId">Save</button></td>
+            </tr>
+        }
+        @if (!Model.Rows.Any())
+        {
+            <tr><td colspan="11" class="text-center text-muted py-4">No organisations yet. Create the first one above.</td></tr>
+        }
+        </tbody>
+    </table>
+</div>
+<p class="small text-muted mt-2">Deactivating an organisation closes its pages (including the kiosk) without deleting anything. Changing the ID changes its address; old links stop working.</p>

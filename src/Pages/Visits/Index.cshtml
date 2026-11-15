@@ -1,0 +1,166 @@
+@page
+@model VisitorManagement.Pages.Visits.IndexModel
+@{
+    ViewData["Title"] = "Visitor log";
+    var page = Url.Page("./Index");
+}
+
+<div class="page-header">
+    <h1 class="page-title">Visitor log</h1>
+    <div class="d-flex flex-wrap gap-2 align-items-center">
+        <partial name="_ViewToggle" model="Model.DisplayMode" />
+        <a class="btn btn-outline-secondary" href="@(page + Model.QueryFor(handler: "Export"))">@Icons.Svg("download", 16) Export CSV</a>
+    </div>
+</div>
+
+<form method="get" class="filter-bar mb-3" id="log-filters">
+    @if (Model.Overstaying)
+    {
+        <input type="hidden" name="Overstaying" value="true" />
+    }
+
+    @* Status tags: tick any number; none ticked means every status. Toggling one applies the filter at once. *@
+    <div class="status-tags mb-2" role="group" aria-label="Status">
+        <span class="status-tags-label">Status</span>
+        <fieldset class="d-contents" disabled="@Model.Overstaying">
+            @foreach (var s in Enum.GetValues<VisitStatus>())
+            {
+                var id = $"status-{s}";
+                var on = Model.Statuses.Contains(s);
+                <input type="checkbox" class="btn-check" name="Statuses" value="@s" id="@id" checked="@on" data-autosubmit />
+                <label class="tag @(on ? "on" : "")" for="@id" title="@(on ? "Remove" : "Add") @Format.StatusLabel(s)">
+                    <span class="tag-dot @Format.StatusClass(s)"></span>
+                    @Format.StatusLabel(s)
+                    <span class="tag-count">@Model.StatusCounts.GetValueOrDefault(s)</span>
+                    @if (on)
+                    {
+                        <span class="tag-x" aria-hidden="true">&times;</span>
+                    }
+                </label>
+            }
+            @if (Model.Statuses.Count > 0)
+            {
+                <a class="tag-clear" href="@(page + Model.QueryFor(statuses: []))">Clear</a>
+            }
+        </fieldset>
+        <span class="status-tags-divider" aria-hidden="true"></span>
+        <a class="tag tag-warning @(Model.Overstaying ? "on" : "")"
+           href="@(page + Model.QueryFor(overstaying: !Model.Overstaying))"
+           title="@(Model.Overstaying ? "Show all visits" : "Visitors on site past their expected check-out, any date")">
+            @Icons.Svg("alert", 13) Overstaying now
+            <span class="tag-count">@Model.OverstayingNow</span>
+            @if (Model.Overstaying)
+            {
+                <span class="tag-x" aria-hidden="true">&times;</span>
+            }
+        </a>
+    </div>
+
+    <div class="row g-2 align-items-end">
+        <div class="col-sm-6 col-lg-2">
+            <label asp-for="From" class="form-label small">From</label>
+            <input asp-for="From" type="date" class="form-control" disabled="@Model.Overstaying" />
+        </div>
+        <div class="col-sm-6 col-lg-2">
+            <label asp-for="To" class="form-label small">To</label>
+            <input asp-for="To" type="date" class="form-control" disabled="@Model.Overstaying" />
+        </div>
+        <div class="col-sm-6 col-lg-3">
+            <label asp-for="Department" class="form-label small">Department</label>
+            <select asp-for="Department" class="form-select">
+                <option value="">Any</option>
+                @foreach (var d in Model.Departments)
+                {
+                    <option value="@d">@d</option>
+                }
+            </select>
+        </div>
+        <div class="col-sm-6 col-lg-4">
+            <label asp-for="Search" class="form-label small">Search</label>
+            <input asp-for="Search" class="form-control" placeholder="Name, company, phone, badge, host" />
+        </div>
+        <div class="col-lg-1 d-grid">
+            <button class="btn btn-primary">Filter</button>
+        </div>
+    </div>
+</form>
+
+<p class="text-muted small">
+    @Model.TotalCount visit(s)@(Model.Overstaying ? " on site past their expected check-out" : "")
+</p>
+
+@if (!Model.Visits.Any())
+{
+    <div class="empty-state">@(Model.Overstaying ? "Nobody is overstaying right now." : "No visits match these filters.")</div>
+}
+else if (Model.DisplayMode == ViewMode.Cards)
+{
+    <div class="card-grid mb-3">
+        @foreach (var v in Model.Visits)
+        {
+            <partial name="_VisitCard" model="new VisitCardModel(v, VisitCardContext.Log, Model.Blacklisted.Contains(v.Id))" />
+        }
+    </div>
+}
+else
+{
+<div class="table-card table-responsive mb-3">
+<table class="table table-hover mb-0 align-middle">
+    <thead>
+        <tr><th>Visitor</th><th>Host</th><th>Purpose</th><th>Status</th><th>In</th><th>Expected out</th><th>Out</th><th>Duration</th><th>Badge</th><th></th></tr>
+    </thead>
+    <tbody>
+    @foreach (var v in Model.Visits)
+    {
+        var row = new VisitCardModel(v, VisitCardContext.Log, Model.Blacklisted.Contains(v.Id));
+        <tr class="@(v.IsOverstaying ? "row-overstaying" : "")">
+            <td><partial name="_VisitorCell" model="row" /></td>
+            <td>@v.Employee?.Name<div class="small text-muted">@v.Department</div></td>
+            <td><span class="purpose-pill @Format.PurposeClass(v.Purpose)">@v.Purpose</span></td>
+            <td><span class="badge rounded-pill @Format.StatusClass(v.Status)">@Format.StatusLabel(v.Status)</span></td>
+            <td class="text-nowrap">@(v.CheckedInAt?.ToString("g") ?? (v.ExpectedAt is { } e ? $"exp. {e:g}" : ""))</td>
+            <td class="text-nowrap @(v.IsOverstaying ? "text-danger fw-semibold" : "")">@v.ExpectedCheckOutAt?.ToString("t")</td>
+            <td>@v.CheckedOutAt?.ToString("t")</td>
+            <td class="text-nowrap">
+                @Format.Duration(v.Duration)
+                @if (v.Overstay is { } o && !v.IsOverstaying)
+                {
+                    <div class="small text-danger">+@Format.Duration(o) over</div>
+                }
+            </td>
+            <td>
+                @if (v.CheckedInAt is not null)
+                {
+                    <a asp-page="/Visits/Badge" asp-route-id="@v.Id">@v.BadgeNumber</a>
+                }
+            </td>
+            <td class="text-end"><partial name="_BlacklistButton" model="row" /></td>
+        </tr>
+    }
+    </tbody>
+</table>
+</div>
+}
+
+@if (Model.TotalPages > 1)
+{
+    <nav>
+        <ul class="pagination">
+            @for (var p = 1; p <= Model.TotalPages; p++)
+            {
+                <li class="page-item @(p == Model.PageNumber ? "active" : "")">
+                    <a class="page-link" href="@(page + Model.QueryFor(page: p))">@p</a>
+                </li>
+            }
+        </ul>
+    </nav>
+}
+
+@section Scripts {
+    <script>
+        // Status tags apply as soon as they're toggled.
+        document.querySelectorAll('#log-filters [data-autosubmit]').forEach(function (box) {
+            box.addEventListener('change', function () { box.form.requestSubmit(); });
+        });
+    </script>
+}

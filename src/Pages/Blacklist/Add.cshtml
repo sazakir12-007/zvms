@@ -1,0 +1,56 @@
+@page
+@model VisitorManagement.Pages.Blacklist.AddModel
+@{
+    ViewData["Title"] = "Blacklist visitor";
+}
+
+<div class="page-header">
+    <h1 class="page-title">Blacklist a visitor</h1>
+    <a asp-page="./Index" class="btn btn-outline-secondary">@Icons.Svg("ban", 16) Blacklist</a>
+</div>
+
+<div class="row g-4">
+    <div class="col-lg-7">
+        <form method="post" class="card card-body">
+            <input type="hidden" asp-for="VisitId" />
+            <div class="row g-3">
+                <div class="col-md-6">
+                    <label asp-for="Name" class="form-label"></label>
+                    <input asp-for="Name" class="form-control" />
+                    <span asp-validation-for="Name" class="text-danger"></span>
+                </div>
+                <div class="col-md-6">
+                    <label asp-for="Phone" class="form-label"></label>
+                    <input asp-for="Phone" type="tel" class="form-control" />
+                    <div class="form-text">Visitors are matched on this number, which they verify by OTP at check-in.</div>
+                    <span asp-validation-for="Phone" class="text-danger"></span>
+                </div>
+                <div class="col-12">
+                    <label asp-for="Reason" class="form-label"></label>
+                    <textarea asp-for="Reason" class="form-control" rows="3" placeholder="What happened, and who decided"></textarea>
+                    <span asp-validation-for="Reason" class="text-danger"></span>
+                </div>
+            </div>
+            <div class="alert alert-light border small mt-3 mb-0">
+                While blacklisted, this visitor can't check in at the kiosk (they're asked to see reception)
+                and badges can't be printed for them.
+            </div>
+            <div class="mt-3">
+                <button class="btn btn-danger">@Icons.Svg("ban", 16) Blacklist visitor</button>
+                <a asp-page="./Index" class="btn btn-link">Cancel</a>
+            </div>
+        </form>
+    </div>
+
+    @if (Model.SourceVisit is { } v)
+    {
+        <div class="col-lg-5">
+            <div class="section-header"><h2 class="section-title">From visit</h2></div>
+            <partial name="_VisitCard" model="new VisitCardModel(v, VisitCardContext.Log, Blacklisted: true)" />
+        </div>
+    }
+</div>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+}

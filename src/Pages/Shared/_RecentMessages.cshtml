@@ -1,0 +1,17 @@
+@* Top bar menu: the 10 most recent messages shown to this user in this browser (filled by site.js). *@
+<div class="dropdown">
+    <button type="button" class="topbar-btn recent-btn" data-bs-toggle="dropdown" data-bs-auto-close="outside"
+            aria-expanded="false" aria-label="Recent messages" title="Recent messages">
+        @Icons.Svg("message", 19)
+        <span class="recent-count" hidden>0</span>
+    </button>
+    <div class="dropdown-menu dropdown-menu-end notif-menu recent-menu">
+        <div class="notif-header">
+            <strong>Recent messages</strong>
+            <button type="button" class="btn btn-link btn-sm p-0 recent-clear">Clear</button>
+        </div>
+        <div class="notif-list recent-list">
+            <div class="notif-empty">No messages yet.</div>
+        </div>
+    </div>
+</div>

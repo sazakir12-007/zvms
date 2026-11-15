@@ -1,0 +1,180 @@
+@page
+@model VisitorManagement.Pages.Platform.PackagesModel
+@using VisitorManagement.Models
+@using System.Globalization
+@{
+    ViewData["Title"] = "License packages";
+}
+
+<div class="page-header">
+    <div>
+        <h1 class="page-title">License packages</h1>
+        <p class="text-muted mb-0 small">
+            Each organisation is on one package. It sets the features they can use, the check-ins covered by the base price,
+            the monthly maximum, and what each check-in beyond the included ones costs from the organisation's prepaid credit.
+        </p>
+    </div>
+    <button class="btn btn-primary" type="button" data-bs-toggle="collapse" data-bs-target="#pkg-form-0" aria-expanded="@(Model.Editing == 0 ? "true" : "false")" aria-controls="pkg-form-0">
+        @Icons.Svg("plus", 15) New package
+    </button>
+</div>
+
+@functions {
+    static string Num(decimal d) => d.ToString("0.####", CultureInfo.InvariantCulture);
+    // Renders the add / edit form for a package (null = new package).
+    async Task PackageForm(LicensePackage? p)
+    {
+        var f = Model.FormFor(p);
+        var id = p?.Id ?? 0;
+        var open = Model.Editing == id;
+        var prefix = $"pkg{id}";
+        <div class="collapse @(open ? "show" : "")" id="pkg-form-@id">
+            <form method="post" asp-page-handler="Save" class="package-form @(p is null ? "card card-body mb-3" : "border-top pt-3 mt-3")">
+                @if (p is null)
+                {
+                    <h2 class="section-title mb-2">New package</h2>
+                }
+                @if (open)
+                {
+                    <div asp-validation-summary="All" class="alert alert-danger small py-2" role="alert"></div>
+                }
+                <input type="hidden" name="Input.Id" value="@id" />
+                <div class="row g-2">
+                    <div class="col-sm-4">
+                        <label class="form-label" for="@prefix-name">Name</label>
+                        <input class="form-control" id="@prefix-name" name="Input.Name" value="@f.Name" maxlength="40" required />
+                    </div>
+                    <div class="col-sm-8">
+                        <label class="form-label" for="@prefix-desc">Description</label>
+                        <input class="form-control" id="@prefix-desc" name="Input.Description" value="@f.Description" maxlength="200" />
+                    </div>
+                    <div class="col-6 col-md-4">
+                        <label class="form-label" for="@prefix-base">Base price / month</label>
+                        <div class="input-group">
+                            <span class="input-group-text">@Format.CurrencySymbol</span>
+                            <input class="form-control" id="@prefix-base" name="Input.BasePricePerMonth" type="number" min="0" step="0.01" value="@Num(f.BasePricePerMonth)" required />
+                        </div>
+                    </div>
+                    <div class="col-6 col-md-4">
+                        <label class="form-label" for="@prefix-incl">Visitors in base price</label>
+                        <input class="form-control" id="@prefix-incl" name="Input.IncludedVisitors" type="number" min="0" step="1" value="@f.IncludedVisitors" required />
+                    </div>
+                    <div class="col-6 col-md-4">
+                        <label class="form-label" for="@prefix-max">Max visitors / month</label>
+                        <input class="form-control" id="@prefix-max" name="Input.MaxVisitorsPerMonth" type="number" min="1" step="1" value="@f.MaxVisitorsPerMonth" required />
+                    </div>
+                    <div class="col-6 col-md-4">
+                        <label class="form-label" for="@prefix-cost">Cost per extra visitor</label>
+                        <div class="input-group">
+                            <span class="input-group-text">@Format.CurrencySymbol</span>
+                            <input class="form-control" id="@prefix-cost" name="Input.CostPerExtraVisitor" type="number" min="0" step="0.01" value="@Num(f.CostPerExtraVisitor)" required />
+                        </div>
+                    </div>
+                    <div class="col-6 col-md-4">
+                        <label class="form-label" for="@prefix-min">Min. credit purchase</label>
+                        <div class="input-group">
+                            <span class="input-group-text">@Format.CurrencySymbol</span>
+                            <input class="form-control" id="@prefix-min" name="Input.MinCreditPurchase" type="number" min="1" step="0.01" value="@Num(f.MinCreditPurchase)" required />
+                        </div>
+                    </div>
+                    <div class="col-6 col-md-4 d-flex align-items-end">
+                        <div class="form-check form-switch mb-2">
+                            <input class="form-check-input" type="checkbox" role="switch" id="@prefix-active" name="Input.IsActive" value="true" checked="@f.IsActive" />
+                            <label class="form-check-label" for="@prefix-active">Active (can be assigned)</label>
+                        </div>
+                    </div>
+                    <div class="col-12">
+                        <span class="form-label d-block">Features</span>
+                        <div class="feature-checks">
+                            @foreach (var info in Features.All)
+                            {
+                                var fid = $"{prefix}-f-{info.Feature}";
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" id="@fid" name="Input.Features" value="@info.Feature" checked="@f.Features.Contains(info.Feature)" />
+                                    <label class="form-check-label" for="@fid" title="@info.Description">@info.Name</label>
+                                </div>
+                            }
+                        </div>
+                        <div class="form-text">Check-in, badges, visitor log, hosts, staff users and data export are always included.</div>
+                    </div>
+                </div>
+                <div class="mt-3 d-flex gap-2">
+                    <button class="btn btn-primary btn-sm">@(p is null ? "Create package" : "Save package")</button>
+                    <button type="button" class="btn btn-link btn-sm" data-bs-toggle="collapse" data-bs-target="#pkg-form-@id">Cancel</button>
+                </div>
+            </form>
+        </div>
+    }
+}
+
+@{ await PackageForm(null); }
+
+<div class="package-grid">
+    @foreach (var p in Model.Packages)
+    {
+        var tenants = Model.TenantCounts.GetValueOrDefault(p.Id);
+        <div class="card package-card @(p.IsActive ? "" : "is-inactive")">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-start gap-2">
+                    <div>
+                        <h2 class="package-name">@Icons.Svg("package", 18) @p.Name</h2>
+                        @if (!string.IsNullOrWhiteSpace(p.Description))
+                        {
+                            <div class="small text-muted">@p.Description</div>
+                        }
+                    </div>
+                    <div class="text-end">
+                        <div class="package-price">@Format.Money(p.BasePricePerMonth)<span class="small text-muted"> /mo</span></div>
+                        @if (!p.IsActive)
+                        {
+                            <span class="badge text-bg-secondary">Inactive</span>
+                        }
+                    </div>
+                </div>
+
+                <dl class="row small my-3 mb-2 plan-terms">
+                    <dt class="col-7">Included visitors</dt><dd class="col-5 text-end">@p.IncludedVisitors.ToString("N0")</dd>
+                    <dt class="col-7">Max visitors / month</dt><dd class="col-5 text-end">@p.MaxVisitorsPerMonth.ToString("N0")</dd>
+                    <dt class="col-7">Per extra visitor</dt><dd class="col-5 text-end">@Format.UnitPrice(p.CostPerExtraVisitor)</dd>
+                    <dt class="col-7">Min. credit purchase</dt><dd class="col-5 text-end">@Format.Money(p.MinCreditPurchase)</dd>
+                </dl>
+
+                <ul class="list-unstyled plan-features small mb-2">
+                    @foreach (var info in Features.All)
+                    {
+                        var on = p.Has(info.Feature);
+                        <li class="@(on ? "" : "text-muted text-decoration-line-through opacity-75")">
+                            <span class="@(on ? "text-success" : "")">@Icons.Svg(on ? "check" : "x", 14)</span> @info.Name
+                        </li>
+                    }
+                </ul>
+
+                <div class="d-flex justify-content-between align-items-center border-top pt-2">
+                    <a class="small" href="/platform/tenants?package=@p.Id">@tenants organisation@(tenants == 1 ? "" : "s")</a>
+                    <div class="d-flex gap-1">
+                        <button class="btn btn-sm btn-outline-primary" type="button" data-bs-toggle="collapse" data-bs-target="#pkg-form-@p.Id"
+                                aria-expanded="@(Model.Editing == p.Id ? "true" : "false")" aria-controls="pkg-form-@p.Id">Edit</button>
+                        @if (tenants == 0)
+                        {
+                            <form method="post" asp-page-handler="Delete" asp-route-id="@p.Id" class="m-0" data-confirm="Delete the @p.Name package?">
+                                <button class="btn btn-sm btn-outline-danger" title="Delete package" aria-label="Delete @p.Name">@Icons.Svg("trash", 14)</button>
+                            </form>
+                        }
+                    </div>
+                </div>
+
+                @{ await PackageForm(p); }
+            </div>
+        </div>
+    }
+</div>
+
+@if (!Model.Packages.Any())
+{
+    <div class="empty-state">No packages yet. Create one above.</div>
+}
+
+<p class="small text-muted mt-3">
+    Changes apply to organisations on the package immediately. Deactivating a package stops it being assigned to new organisations;
+    organisations already on it keep it. A package can only be deleted when no organisation uses it.
+</p>

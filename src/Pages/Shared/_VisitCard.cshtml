@@ -1,0 +1,115 @@
+@model VisitCardModel
+@{
+    var v = Model.Visit;
+    var late = Model.Context == VisitCardContext.Expected && v.ExpectedAt < DateTime.Now.AddMinutes(-15);
+}
+<div class="visit-card @Format.PurposeClass(v.Purpose) @(v.IsOverstaying ? "is-overstaying" : "") @(Model.Blacklisted ? "is-blacklisted" : "")">
+    <div class="visit-card-body">
+        <div class="d-flex gap-3 align-items-start">
+            @if (v.CheckedInAt is not null)
+            {
+                <img class="visit-card-photo" src="@Tenancy.Url($"/visits/{v.Id}/photo")" alt="Photo of @v.VisitorName" loading="lazy"
+                     data-initials="@Format.Initials(v.VisitorName)"
+                     onerror="this.replaceWith(Object.assign(document.createElement('div'), { className: 'visit-card-photo visit-card-initials', textContent: this.dataset.initials }))" />
+            }
+            else
+            {
+                <div class="visit-card-photo visit-card-initials">@Format.Initials(v.VisitorName)</div>
+            }
+            <div class="min-w-0 flex-grow-1">
+                <div class="visit-card-name text-truncate" title="@v.VisitorName">@v.VisitorName</div>
+                @if (!string.IsNullOrEmpty(v.Company))
+                {
+                    <div class="visit-card-company text-truncate">@v.Company</div>
+                }
+                <div class="mt-1 d-flex flex-wrap gap-1">
+                    <span class="purpose-pill @Format.PurposeClass(v.Purpose)">@v.Purpose</span>
+                    @if (Model.Context == VisitCardContext.Log)
+                    {
+                        <span class="badge rounded-pill @Format.StatusClass(v.Status)">@Format.StatusLabel(v.Status)</span>
+                    }
+                    <partial name="_VisitFlags" model="Model" />
+                </div>
+            </div>
+        </div>
+
+        <ul class="visit-card-meta">
+            <li>@Icons.Svg("user", 15) <span class="text-truncate">@v.Employee?.Name@(v.Department is { } d ? $" · {d}" : "")</span></li>
+            @if (v.Location is { } loc)
+            {
+                <li>@Icons.Svg("building", 15) <span class="text-truncate">@loc</span></li>
+            }
+            @if (Model.Context == VisitCardContext.Expected)
+            {
+                <li class="@(late ? "text-danger fw-semibold" : "")">
+                    @Icons.Svg("clock", 15) <span>Expected @v.ExpectedAt?.ToString("t")@(late ? " · late" : "")</span>
+                </li>
+                <li>@Icons.Svg("key", 15) <code>@v.AccessCode</code></li>
+            }
+            else if (v.CheckedInAt is not null)
+            {
+                <li>
+                    @Icons.Svg("clock", 15)
+                    <span>
+                        @(Model.Context == VisitCardContext.Log ? v.CheckedInAt?.ToString("g") : v.CheckedInAt?.ToString("t"))
+                        @if (v.CheckedOutAt is not null)
+                        {
+                            <text>&ndash; @v.CheckedOutAt?.ToString("t")</text>
+                        }
+                        <span class="text-muted">(@Format.Duration(v.Duration))</span>
+                    </span>
+                </li>
+                @if (v.Status == VisitStatus.CheckedIn && v.ExpectedCheckOutAt is not null)
+                {
+                    <li class="@(v.IsOverstaying ? "text-danger fw-semibold" : "")">
+                        @Icons.Svg("hourglass", 15) <span>Expected out @v.ExpectedCheckOutAt?.ToString("t")</span>
+                    </li>
+                }
+                <li>@Icons.Svg("badge", 15) <a asp-page="/Visits/Badge" asp-route-id="@v.Id">@v.BadgeNumber</a></li>
+            }
+            else if (v.ExpectedAt is not null)
+            {
+                <li>@Icons.Svg("clock", 15) <span>Expected @v.ExpectedAt?.ToString("g")</span></li>
+            }
+            @if (!string.IsNullOrEmpty(v.Phone))
+            {
+                <li>
+                    @Icons.Svg("phone", 15) <span>@v.Phone</span>
+                    @if (v.PhoneVerified)
+                    {
+                        <span class="text-success" title="Verified by OTP">&#10003;</span>
+                    }
+                </li>
+            }
+        </ul>
+    </div>
+
+    <div class="visit-card-actions d-flex gap-2">
+        @if (Model.Context == VisitCardContext.OnSite)
+        {
+            <form method="post" asp-page="/Index" asp-page-handler="CheckOut" asp-route-id="@v.Id" class="flex-grow-1">
+                <button class="btn btn-sm btn-outline-secondary w-100">@Icons.Svg("check-out", 15) Check out</button>
+            </form>
+        }
+        else if (Model.Context == VisitCardContext.Expected)
+        {
+            @if (Model.Blacklisted)
+            {
+                <button class="btn btn-sm btn-success flex-grow-1" disabled title="Blacklisted visitors can't be checked in">@Icons.Svg("check-in", 15) Check in</button>
+            }
+            else
+            {
+                <a class="btn btn-sm btn-success flex-grow-1" asp-page="/CheckIn" asp-route-code="@v.AccessCode">@Icons.Svg("check-in", 15) Check in</a>
+            }
+            <form method="post" asp-page="/Index" asp-page-handler="Cancel" asp-route-id="@v.Id"
+                  data-confirm="Cancel this appointment?">
+                <button class="btn btn-sm btn-outline-danger" title="Cancel appointment" aria-label="Cancel appointment">@Icons.Svg("x", 15)</button>
+            </form>
+        }
+        else
+        {
+            <span class="flex-grow-1"></span>
+        }
+        <partial name="_BlacklistButton" model="Model" />
+    </div>
+</div>

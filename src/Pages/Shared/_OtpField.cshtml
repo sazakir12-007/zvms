@@ -1,0 +1,28 @@
+@model OtpFieldModel
+@* Mobile number + one-time code. Posts as Visit.Phone and PhoneToken; behaviour lives in wwwroot/js/checkin.js. *@
+<div class="otp-widget"
+     data-send-url="@Url.Page("/CheckIn", "SendOtp")"
+     data-verify-url="@Url.Page("/CheckIn", "VerifyOtp")"
+     data-auto-submit="@(Model.AutoSubmit ? "true" : "false")">
+    <label class="form-label" for="@(Model.IdPrefix)-phone">@Model.Label</label>
+    <div class="input-group">
+        <input id="@(Model.IdPrefix)-phone" name="Visit.Phone" value="@Model.Phone" type="tel"
+               class="form-control otp-phone" placeholder="+1 555 010 1234" autocomplete="tel" />
+        <button type="button" class="btn btn-outline-primary otp-send">Send code</button>
+    </div>
+
+    <div class="otp-entry d-none mt-2">
+        <label class="form-label small mb-1" for="@(Model.IdPrefix)-code">Enter the code sent to your phone</label>
+        <div class="input-group">
+            <input id="@(Model.IdPrefix)-code" class="form-control otp-code" inputmode="numeric" maxlength="6" autocomplete="one-time-code" />
+            <button type="button" class="btn btn-primary otp-verify">Verify</button>
+        </div>
+        @if (Model.ShowDemoHint)
+        {
+            <div class="form-text">Demo mode: no SMS is sent. The code is always <strong>9999</strong>.</div>
+        }
+    </div>
+
+    <div class="otp-status small mt-2"></div>
+    <input type="hidden" name="PhoneToken" value="@Model.Token" class="phone-token" />
+</div>

@@ -1,0 +1,7 @@
+@model VisitCardModel
+@* Staff action to blacklist the visitor behind a visit. Needs a phone number to match on. *@
+@if (!Model.Blacklisted && !string.IsNullOrEmpty(Model.Visit.Phone))
+{
+    <a class="btn btn-sm btn-outline-dark" asp-page="/Blacklist/Add" asp-route-visitId="@Model.Visit.Id"
+       title="Blacklist this visitor" aria-label="Blacklist @Model.Visit.VisitorName">@Icons.Svg("ban", 15)</a>
+}

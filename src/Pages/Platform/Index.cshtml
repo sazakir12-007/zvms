@@ -1,0 +1,23 @@
+@page
+@model VisitorManagement.Pages.Platform.IndexModel
+@{
+    ViewData["Title"] = "Welcome";
+    ViewData["Centered"] = true;
+}
+
+<h1 class="auth-title">Go to your organisation</h1>
+<p class="auth-sub">Enter your organisation's ID. It's the short name in your visitor management address, like <code>/acme</code>.</p>
+
+<form method="get">
+    @if (Model.Error is { } error)
+    {
+        <div class="alert alert-danger">@error</div>
+    }
+    <div class="input-group mb-3">
+        <span class="input-group-text">@ViewContext.HttpContext.Request.Host/</span>
+        <input asp-for="Org" class="form-control" placeholder="your-org" autocomplete="organization" autocapitalize="none" spellcheck="false" autofocus aria-label="Organisation ID" />
+    </div>
+    <button class="btn btn-primary w-100">Continue</button>
+</form>
+
+<p class="small text-muted mt-3 mb-0 text-center"><a href="/platform/tenants">Platform administration</a></p>

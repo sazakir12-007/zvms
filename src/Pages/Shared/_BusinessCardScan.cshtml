@@ -1,0 +1,29 @@
+@model CheckInModel
+@* Optional: photograph or upload the visitor's business card; the text is read in the browser
+   (Tesseract.js OCR, loaded only when used) and fills in name, company, email and mobile number.
+   Behaviour lives in wwwroot/js/checkin.js; the card image is kept with the visit. *@
+<div class="bcard-scan card card-body mb-3">
+    <div class="d-flex flex-wrap justify-content-between align-items-center gap-2">
+        <div>
+            <strong>@Icons.Svg("scan", 16) Have a business card?</strong>
+            <div class="small text-muted">Scan it to fill in your details, then check them.</div>
+        </div>
+        <div class="d-flex flex-wrap gap-2">
+            <button type="button" class="btn btn-sm btn-primary bcard-camera-start">@Icons.Svg("camera", 15) Scan with camera</button>
+            <label class="btn btn-sm btn-outline-primary mb-0">
+                @Icons.Svg("download", 15) Upload image
+                <input type="file" class="d-none bcard-file" accept="image/*" />
+            </label>
+        </div>
+    </div>
+
+    <div class="bcard-camera @(string.IsNullOrEmpty(Model.BusinessCardImageData) ? "d-none" : "") mt-3">
+        <partial name="_CameraCapture" model="@(new CameraCaptureModel("Business card", "BusinessCardImageData", Model.BusinessCardImageData, AutoStart: false, Mirror: false, CaptureLabel: "Capture card", CssClass: "doc-camera"))" />
+    </div>
+
+    <div class="bcard-progress d-none mt-2" role="status">
+        <div class="d-flex justify-content-between small"><span class="bcard-progress-label">Reading card…</span><span class="bcard-progress-pct"></span></div>
+        <div class="progress" style="height: 6px;"><div class="progress-bar progress-bar-striped progress-bar-animated" style="width: 5%"></div></div>
+    </div>
+    <div class="bcard-result small mt-2" aria-live="polite"></div>
+</div>

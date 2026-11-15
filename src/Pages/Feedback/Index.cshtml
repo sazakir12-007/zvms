@@ -1,0 +1,83 @@
+@page
+@model VisitorManagement.Pages.Feedback.IndexModel
+@using VisitorManagement.Models
+@{
+    ViewData["Title"] = "Feedback";
+}
+
+<div class="page-header">
+    <div>
+        <h1 class="page-title">Feedback</h1>
+        <p class="text-muted mb-0 small">Found a problem or have an idea? Tell us. Replies appear below.</p>
+    </div>
+</div>
+
+<div class="row g-3">
+    <div class="col-lg-6">
+        <form method="post" class="card card-body">
+            <div asp-validation-summary="ModelOnly" class="alert alert-danger" role="alert"></div>
+            <input type="hidden" asp-for="From" />
+
+            <span class="form-label">Type</span>
+            <div class="d-flex flex-wrap gap-2 mb-3">
+                @foreach (var c in Enum.GetValues<FeedbackCategory>())
+                {
+                    <input type="radio" class="btn-check" name="Category" id="cat-@c" value="@c" checked="@(c == Model.Category)" />
+                    <label class="btn btn-sm btn-outline-primary" for="cat-@c">@c</label>
+                }
+            </div>
+
+            <label asp-for="Subject" class="form-label"></label>
+            <input asp-for="Subject" class="form-control mb-1" maxlength="120" />
+            <span asp-validation-for="Subject" class="text-danger small d-block mb-2"></span>
+
+            <label asp-for="Message" class="form-label">Details</label>
+            <textarea asp-for="Message" class="form-control mb-1" rows="6" maxlength="4000"></textarea>
+            <span asp-validation-for="Message" class="text-danger small d-block mb-2"></span>
+
+            <span class="form-label">How happy are you with the app? <span class="text-muted small fw-normal">(optional)</span></span>
+            <div class="d-flex gap-1 mb-3 rating-input">
+                @for (var i = 1; i <= 5; i++)
+                {
+                    <input type="radio" class="btn-check" name="Rating" id="rate-@i" value="@i" checked="@(Model.Rating == i)" />
+                    <label class="btn btn-sm btn-outline-warning" for="rate-@i" title="@i of 5">@(new string('★', i))</label>
+                }
+            </div>
+
+            @if (!string.IsNullOrEmpty(Model.From))
+            {
+                <div class="form-text mb-2">About page: <code>@Model.From</code></div>
+            }
+            <div><button class="btn btn-primary">@Icons.Svg("message", 15) Send feedback</button></div>
+        </form>
+    </div>
+
+    <div class="col-lg-6">
+        <div class="section-header"><h2 class="section-title">Your organisation's feedback</h2></div>
+        @if (!Model.History.Any())
+        {
+            <div class="empty-state">No feedback sent yet.</div>
+        }
+        @foreach (var f in Model.History)
+        {
+            <div class="card card-body mb-2 feedback-item">
+                <div class="d-flex justify-content-between gap-2">
+                    <strong>@f.Subject</strong>
+                    <span class="badge @IndexModel.StatusClass(f.Status) align-self-start">@IndexModel.StatusLabel(f.Status)</span>
+                </div>
+                <div class="small text-muted mb-1">
+                    @f.Category · @f.SubmittedBy · @f.CreatedAt.ToString("g")
+                    @if (f.Rating is { } r) { <span class="text-warning ms-1">@(new string('★', r))</span> }
+                </div>
+                <div class="small feedback-text">@f.Message</div>
+                @if (!string.IsNullOrWhiteSpace(f.Response))
+                {
+                    <div class="feedback-reply small mt-2">
+                        <strong>Reply</strong> <span class="text-muted">· @f.RespondedAt?.ToString("g")</span>
+                        <div class="feedback-text">@f.Response</div>
+                    </div>
+                }
+            </div>
+        }
+    </div>
+</div>

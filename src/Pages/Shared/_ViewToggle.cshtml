@@ -1,0 +1,22 @@
+@model string
+@* List / card switch. Keeps the current query string and swaps the view parameter. *@
+@{
+    string UrlFor(string mode)
+    {
+        var query = Context.Request.Query
+            .Where(q => !string.Equals(q.Key, "view", StringComparison.OrdinalIgnoreCase))
+            .Select(q => new KeyValuePair<string, string?>(q.Key, q.Value.ToString()))
+            .Append(new KeyValuePair<string, string?>("view", mode));
+        return Context.Request.PathBase + Context.Request.Path + QueryString.Create(query);
+    }
+}
+<div class="btn-group view-toggle" role="group" aria-label="Layout">
+    <a class="btn btn-sm @(Model == ViewMode.List ? "btn-dark" : "btn-outline-secondary")"
+       href="@UrlFor(ViewMode.List)" title="List view" aria-pressed="@(Model == ViewMode.List ? "true" : "false")">
+        @Icons.Svg("list", 16) <span class="d-none d-md-inline">List</span>
+    </a>
+    <a class="btn btn-sm @(Model == ViewMode.Cards ? "btn-dark" : "btn-outline-secondary")"
+       href="@UrlFor(ViewMode.Cards)" title="Card view" aria-pressed="@(Model == ViewMode.Cards ? "true" : "false")">
+        @Icons.Svg("grid", 16) <span class="d-none d-md-inline">Cards</span>
+    </a>
+</div>

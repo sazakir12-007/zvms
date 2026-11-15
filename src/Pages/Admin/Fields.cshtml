@@ -1,0 +1,60 @@
+@page
+@model VisitorManagement.Pages.Admin.FieldsModel
+@using VisitorManagement.Services
+@{
+    ViewData["Title"] = "Form fields";
+}
+
+<div class="page-header">
+    <div>
+        <h1 class="page-title">Form fields</h1>
+        <p class="text-muted mb-0 small">
+            Choose what the check-in and appointment screens ask for. Name, mobile number verification (check-in), host,
+            purpose and accepting the visitor agreement are always required.
+        </p>
+    </div>
+</div>
+
+<form method="post">
+    @foreach (var screen in FieldSettings.All.GroupBy(f => f.Screen))
+    {
+        <div class="table-card table-responsive mb-3">
+            <div class="evac-floor-title">@screen.Key</div>
+            <table class="table table-sm align-middle mb-0 fields-table">
+                <thead>
+                    <tr><th>Field</th><th class="text-center">Hidden</th><th class="text-center">Optional</th><th class="text-center">Required</th></tr>
+                </thead>
+                <tbody>
+                    @foreach (var f in screen)
+                    {
+                        var current = Model.Current[f.Key];
+                        <tr>
+                            <td>
+                                <strong>@f.Name</strong>
+                                <div class="small text-muted">@f.Description</div>
+                            </td>
+                            @foreach (var mode in Enum.GetValues<FieldMode>())
+                            {
+                                <td class="text-center">
+                                    @if (f.Allowed.Contains(mode))
+                                    {
+                                        <input class="form-check-input" type="radio" name="@f.Key" value="@mode" checked="@(current == mode)"
+                                               aria-label="@f.Name: @mode" />
+                                    }
+                                    else
+                                    {
+                                        <span class="text-muted" title="Not available for this field">–</span>
+                                    }
+                                </td>
+                            }
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    }
+    <button class="btn btn-primary">Save</button>
+</form>
+<form method="post" asp-page-handler="Reset" class="mt-2" data-confirm="Reset all form fields to the defaults?">
+    <button class="btn btn-sm btn-link px-0">Reset to defaults</button>
+</form>

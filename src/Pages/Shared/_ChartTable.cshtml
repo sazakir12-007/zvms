@@ -1,0 +1,13 @@
+@model ChartData
+<details class="chart-table">
+    <summary>View as table</summary>
+    <table class="table table-sm mb-0">
+        <thead><tr><th scope="col"></th><th scope="col" class="text-end">Value</th></tr></thead>
+        <tbody>
+            @foreach (var p in Model.Points)
+            {
+                <tr><td>@p.Label</td><td class="text-end tabular">@ChartScale.Format(p.Value)@Model.ValueSuffix</td></tr>
+            }
+        </tbody>
+    </table>
+</details>

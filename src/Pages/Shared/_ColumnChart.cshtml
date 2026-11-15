@@ -1,0 +1,48 @@
+@model ChartData
+@* Vertical columns for an ordered axis (days, hours). One series, one colour; hover shows each value;
+   the busiest column is labelled; a table view is available for screen readers and exact numbers. *@
+@{
+    var max = Model.Max;
+    var scaleMax = ChartScale.NiceMax(max);
+    var peak = Model.Points.Select((p, i) => (p, i)).Where(x => x.p.Value > 0).OrderByDescending(x => x.p.Value).Select(x => (int?)x.i).FirstOrDefault();
+    // Thin out x labels so they don't collide.
+    var labelEvery = Model.Points.Count > 16 ? 3 : Model.Points.Count > 8 ? 2 : 1;
+}
+<figure class="chart-card">
+    <figcaption>
+        <div class="chart-title">@Model.Title</div>
+        <div class="chart-subtitle">@Model.Subtitle</div>
+    </figcaption>
+    @if (max <= 0)
+    {
+        <div class="chart-empty">No data yet</div>
+    }
+    else
+    {
+        <div class="col-chart" role="img" aria-label="@Model.Title: @string.Join(", ", Model.Points.Select(p => $"{p.Label} {p.Value}"))">
+            <div class="col-chart-grid" aria-hidden="true">
+                <span style="bottom:100%"><em>@ChartScale.Format(scaleMax)</em></span>
+                <span style="bottom:50%"><em>@ChartScale.Format(scaleMax / 2)</em></span>
+                <span style="bottom:0"><em>0</em></span>
+            </div>
+            <div class="col-chart-plot">
+                @for (var i = 0; i < Model.Points.Count; i++)
+                {
+                    var p = Model.Points[i];
+                    var pct = scaleMax == 0 ? 0 : p.Value / scaleMax * 100;
+                    <div class="col-chart-slot" tabindex="0" data-tip="@(p.Tooltip ?? $"{p.Label}: {p.Value}{Model.ValueSuffix}")">
+                        <div class="col-chart-bar @p.CssClass" style="height:@pct.ToString("0.##", System.Globalization.CultureInfo.InvariantCulture)%">
+                            @if (i == peak)
+                            {
+                                <span class="col-chart-value">@ChartScale.Format(p.Value)</span>
+                            }
+                        </div>
+                        @* Count from the end so the latest label always shows and spacing stays even. *@
+                        <span class="col-chart-label">@((Model.Points.Count - 1 - i) % labelEvery == 0 ? p.Label : "")</span>
+                    </div>
+                }
+            </div>
+        </div>
+    }
+    <partial name="_ChartTable" model="Model" />
+</figure>

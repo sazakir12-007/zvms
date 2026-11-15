@@ -1,0 +1,12 @@
+@model Branding
+@* Company logo for passes; falls back to the company name when no logo is uploaded. *@
+<span class="pass-logo">
+    @if (Model.HasLogo)
+    {
+        <img src="@Model.LogoUrl" alt="@Model.CompanyName" />
+    }
+    else
+    {
+        <span class="pass-logo-text">@Model.CompanyName</span>
+    }
+</span>

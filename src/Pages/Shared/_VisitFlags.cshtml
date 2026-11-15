@@ -1,0 +1,10 @@
+@model VisitCardModel
+@* Warning tags shown next to a visitor: blacklisted, overstaying. Icon + label, never colour alone. *@
+@if (Model.Blacklisted)
+{
+    <span class="flag flag-danger" title="This visitor's number is on the blacklist">@Icons.Svg("ban", 12) Blacklisted</span>
+}
+@if (Model.Visit.IsOverstaying)
+{
+    <span class="flag flag-warning" title="Expected to leave at @Model.Visit.ExpectedCheckOutAt?.ToString("t")">@Icons.Svg("alert", 12) Overstaying @Format.Duration(Model.Visit.Overstay)</span>
+}

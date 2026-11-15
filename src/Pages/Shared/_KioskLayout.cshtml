@@ -1,0 +1,36 @@
+@inject VisitorManagement.Services.SettingsService Settings
+@* Visitor-facing layout for the signed-out kiosk: company banner only, no staff navigation or data. *@
+@{
+    var brand = await Settings.GetBrandingAsync();
+}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="robots" content="noindex" />
+    <title>@ViewData["Title"] - @brand.CompanyName</title>
+    <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css" />
+    <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
+    <link rel="stylesheet" href="~/css/theme.css" asp-append-version="true" />
+    <link rel="stylesheet" href="@Tenancy.Url("/lookups/purposes.css")" />
+</head>
+<body class="kiosk-body">
+    <header class="app-topbar banner-@brand.Style.ToString().ToLowerInvariant() d-print-none">
+        <span class="app-brand">
+            <partial name="_BrandMark" model="brand" />
+        </span>
+        <a class="kiosk-staff-link" asp-page="/Account/Login" asp-route-returnUrl="@Tenancy.Home">Staff sign in</a>
+    </header>
+
+    <main class="kiosk-main" role="main">
+        <partial name="_PageMessages" model="false" />
+        @RenderBody()
+    </main>
+
+    <script src="~/lib/jquery/dist/jquery.min.js"></script>
+    <script src="~/lib/bootstrap/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="~/js/site.js" asp-append-version="true"></script>
+    @await RenderSectionAsync("Scripts", required: false)
+</body>
+</html>

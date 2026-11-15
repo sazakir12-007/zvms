@@ -1,0 +1,357 @@
+@page
+@model VisitorManagement.Pages.Plan.IndexModel
+@using VisitorManagement.Models
+@{
+    ViewData["Title"] = "Plan & usage";
+    var s = Model.Status;
+    var p = s.Package;
+    var days = (s.PeriodEnd - s.PeriodStart).Days;
+    var dayOfPeriod = Math.Min(days, (DateTime.Today - s.PeriodStart).Days + 1);
+}
+
+<div class="page-header">
+    <div>
+        <h1 class="page-title">Plan &amp; usage</h1>
+        <p class="text-muted mb-0 small">
+            Billing period @s.PeriodStart.ToString("d MMM") – @s.PeriodEnd.AddDays(-1).ToString("d MMM yyyy") · day @dayOfPeriod of @days
+        </p>
+    </div>
+</div>
+
+@if (Model.MissingFeature is { } mf)
+{
+    <div class="alert alert-info d-flex gap-3 align-items-start" role="status">
+        @Icons.Svg("package", 22)
+        <div>
+            <strong>@mf.Name isn't included in your plan.</strong> @mf.Description
+            @if (Model.UpgradeTo is { } up)
+            {
+                <br /><span>It's available on the <strong>@up.Name</strong> plan. Contact your provider to upgrade.</span>
+            }
+        </div>
+    </div>
+}
+
+@if (p is null)
+{
+    <div class="empty-state">No license package is assigned to your organisation, so there are no limits. Contact your provider for details.</div>
+    return;
+}
+
+@{
+    var subState = s.Subscription;
+}
+@if (subState != VisitorManagement.Services.SubscriptionState.Unlimited)
+{
+    var until = s.ValidUntil!.Value;
+    var cls = subState switch
+    {
+        VisitorManagement.Services.SubscriptionState.Expired => "border-danger",
+        VisitorManagement.Services.SubscriptionState.Grace => "border-danger",
+        VisitorManagement.Services.SubscriptionState.ExpiringSoon => "border-warning",
+        _ => ""
+    };
+    <div class="card mb-3 subscription-card @cls">
+        <div class="card-body d-flex flex-wrap gap-3 align-items-center justify-content-between">
+            <div>
+                <div class="small text-muted">Subscription</div>
+                @switch (subState)
+                {
+                    case VisitorManagement.Services.SubscriptionState.Expired:
+                        <strong class="text-danger">Expired on @until.ToString("d MMM yyyy").</strong>
+                        <div class="small">The grace period has ended, so visitor check-in is paused. Renew to continue.</div>
+                        break;
+                    case VisitorManagement.Services.SubscriptionState.Grace:
+                        <strong class="text-danger">Ended on @until.ToString("d MMM yyyy").</strong>
+                        <div class="small">Check-in keeps working until @VisitorManagement.Services.Subscription.GraceEnds(until).ToString("d MMM yyyy"). Renew before then.</div>
+                        break;
+                    default:
+                        <strong>Valid until @until.ToString("d MMM yyyy")</strong>
+                        <span class="text-muted small">· @VisitorManagement.Services.Subscription.DaysLeft(until) day(s) left</span>
+                        break;
+                }
+            </div>
+            @if (Model.IsAdmin && p is not null)
+            {
+                @if (Model.OnlinePayment)
+                {
+                    <form method="post" asp-page-handler="Renew" class="d-flex flex-wrap gap-2 align-items-center">
+                        <label class="small text-muted" for="renew-months">Renew for</label>
+                        <select id="renew-months" name="RenewMonths" class="form-select form-select-sm" style="width: auto;">
+                            @foreach (var m in VisitorManagement.Services.Subscription.RenewalMonths)
+                            {
+                                <option value="@m" selected="@(m == Model.RenewMonths)">@m month@(m == 1 ? "" : "s") – @Format.Money(p.BasePricePerMonth * m)</option>
+                            }
+                        </select>
+                        <button class="btn btn-sm btn-primary">@Icons.Svg("credit-card", 14) Pay &amp; renew</button>
+                        @Html.ValidationMessage("RenewMonths", new { @class = "text-danger small w-100" })
+                    </form>
+                }
+                else
+                {
+                    <div class="small text-muted">Contact your provider to renew.</div>
+                }
+            }
+        </div>
+    </div>
+}
+
+<div class="stat-grid mb-4">
+    <div class="stat-card">
+        <div class="stat-icon bg-primary-subtle text-primary">@Icons.Svg("check-in", 22)</div>
+        <div><div class="stat-value">@s.CheckInsThisPeriod.ToString("N0")</div><div class="stat-label">Check-ins this month</div></div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-icon bg-success-subtle text-success">@Icons.Svg("users", 22)</div>
+        <div><div class="stat-value">@s.IncludedRemaining.ToString("N0")</div><div class="stat-label">Included check-ins left</div></div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-icon bg-warning-subtle text-warning">@Icons.Svg("credit-card", 22)</div>
+        <div><div class="stat-value">@Format.Money(s.CreditBalance)</div><div class="stat-label">Credit remaining</div></div>
+    </div>
+    <div class="stat-card @(s.RemainingCheckIns == 0 || s.RunningLow ? "is-alert" : "")">
+        <div class="stat-icon bg-info-subtle text-info">@Icons.Svg("activity", 22)</div>
+        <div><div class="stat-value">@s.RemainingCheckIns.ToString("N0")</div><div class="stat-label">Possible check-ins left</div></div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-icon bg-danger-subtle text-danger">@Icons.Svg("chart", 22)</div>
+        <div><div class="stat-value">@Format.Money(s.CostThisPeriod)</div><div class="stat-label">Cost so far this month</div></div>
+    </div>
+</div>
+
+<div class="row g-3">
+    <div class="col-lg-7">
+        <div class="card h-100">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <span>@Icons.Svg("package", 16) <strong>@p.Name</strong> plan</span>
+                <span class="badge text-bg-primary">@Format.Money(p.BasePricePerMonth) / month</span>
+            </div>
+            <div class="card-body">
+                @if (!string.IsNullOrWhiteSpace(p.Description))
+                {
+                    <p class="text-muted small">@p.Description</p>
+                }
+
+                @{
+                    var used = s.CheckInsThisPeriod;
+                    var includedPct = p.IncludedVisitors == 0 ? 100 : Math.Min(100, used * 100 / p.IncludedVisitors);
+                    var maxPct = Math.Min(100, used * 100 / Math.Max(1, p.MaxVisitorsPerMonth));
+                }
+                <div class="mb-2 small d-flex justify-content-between">
+                    <span>Included check-ins</span>
+                    <span>@Math.Min(used, p.IncludedVisitors).ToString("N0") of @p.IncludedVisitors.ToString("N0")</span>
+                </div>
+                <div class="progress mb-3" style="height: 8px;" role="progressbar" aria-label="Included check-ins used" aria-valuenow="@includedPct" aria-valuemin="0" aria-valuemax="100">
+                    <div class="progress-bar @(includedPct >= 100 ? "bg-warning" : "bg-success")" style="width: @includedPct%"></div>
+                </div>
+                <div class="mb-2 small d-flex justify-content-between">
+                    <span>Monthly maximum</span>
+                    <span>@used.ToString("N0") of @p.MaxVisitorsPerMonth.ToString("N0")</span>
+                </div>
+                <div class="progress mb-3" style="height: 8px;" role="progressbar" aria-label="Monthly maximum used" aria-valuenow="@maxPct" aria-valuemin="0" aria-valuemax="100">
+                    <div class="progress-bar @(maxPct >= 90 ? "bg-danger" : "bg-primary")" style="width: @maxPct%"></div>
+                </div>
+
+                <dl class="row small mb-3 plan-terms">
+                    <dt class="col-7">Base price per month</dt><dd class="col-5 text-end">@Format.Money(p.BasePricePerMonth)</dd>
+                    <dt class="col-7">Visitors included in base price</dt><dd class="col-5 text-end">@p.IncludedVisitors.ToString("N0")</dd>
+                    <dt class="col-7">Maximum visitors per month</dt><dd class="col-5 text-end">@p.MaxVisitorsPerMonth.ToString("N0")</dd>
+                    <dt class="col-7">Cost per visitor after included</dt><dd class="col-5 text-end">@Format.UnitPrice(p.CostPerExtraVisitor)</dd>
+                    <dt class="col-7">Minimum credit purchase</dt><dd class="col-5 text-end">@Format.Money(p.MinCreditPurchase)</dd>
+                    <dt class="col-7">Extra check-ins this month</dt><dd class="col-5 text-end">@s.ExtraCheckInsThisPeriod.ToString("N0") · @Format.Money(s.CreditUsedThisPeriod)</dd>
+                    <dt class="col-7">Credit bought this month</dt><dd class="col-5 text-end">@Format.Money(s.CreditsBoughtThisPeriod)</dd>
+                </dl>
+
+                <span class="form-label">Features</span>
+                <ul class="list-unstyled plan-features mb-0">
+                    @foreach (var f in Features.All)
+                    {
+                        var on = p.Has(f.Feature);
+                        <li class="@(on ? "" : "text-muted")">
+                            <span class="@(on ? "text-success" : "opacity-50")">@Icons.Svg(on ? "check" : "x", 15)</span>
+                            <strong>@f.Name</strong> <span class="small">– @f.Description</span>
+                        </li>
+                    }
+                </ul>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-lg-5">
+        <div class="card h-100">
+            <div class="card-header">@Icons.Svg("credit-card", 16) Buy additional credit</div>
+            <div class="card-body">
+                <p class="small text-muted">
+                    Credit is a prepaid amount. Each check-in after the @p.IncludedVisitors.ToString("N0") included each month uses
+                    @Format.UnitPrice(p.CostPerExtraVisitor) of it. Unused credit carries over to the next month.
+                    The monthly maximum of @p.MaxVisitorsPerMonth.ToString("N0") check-ins still applies.
+                </p>
+                @if (Model.IsAdmin)
+                {
+                    <form method="post" asp-page-handler="@(Model.OnlinePayment ? "Pay" : "Buy")" id="buy-form">
+                        <div asp-validation-summary="ModelOnly" class="alert alert-danger" role="alert"></div>
+                        <label for="buy-amount" class="form-label">Amount</label>
+                        <div class="input-group" style="max-width: 260px;">
+                            <span class="input-group-text">@Format.CurrencySymbol</span>
+                            <input name="Amount" id="buy-amount" type="number" min="@p.MinCreditPurchase.ToString(System.Globalization.CultureInfo.InvariantCulture)" step="1"
+                                   value="@Model.Amount.ToString("0.##", System.Globalization.CultureInfo.InvariantCulture)" class="form-control" required
+                                   data-unit="@p.CostPerExtraVisitor.ToString(System.Globalization.CultureInfo.InvariantCulture)" />
+                        </div>
+                        <div class="form-text">Minimum @Format.Money(p.MinCreditPurchase).</div>
+                        <span asp-validation-for="Amount" class="text-danger d-block"></span>
+                        <div class="d-flex flex-wrap gap-1 my-2">
+                            @foreach (var mult in new[] { 1, 2, 5, 10 })
+                            {
+                                var q = p.MinCreditPurchase * mult;
+                                <button type="button" class="btn btn-sm btn-outline-secondary buy-preset" data-amount="@q.ToString(System.Globalization.CultureInfo.InvariantCulture)">@Format.Money(q)</button>
+                            }
+                        </div>
+                        <div class="my-2">Covers about <strong id="buy-checkins">@Model.PurchaseCheckIns.ToString("N0", Format.MoneyCulture)</strong> extra check-ins.</div>
+                        @if (Model.OnlinePayment)
+                        {
+                            <button class="btn btn-primary">@Icons.Svg("credit-card", 15) Pay online</button>
+                            <div class="form-text">
+                                Secure payment by Razorpay: UPI, cards, netbanking or wallets. The credit is added as soon as the payment succeeds.
+                                @if (Model.TestMode)
+                                {
+                                    <span class="badge text-bg-warning ms-1">Test mode – no real money</span>
+                                }
+                            </div>
+                        }
+                        else
+                        {
+                            <div class="form-check mb-3">
+                                <input asp-for="ConfirmInvoice" class="form-check-input" />
+                                <label asp-for="ConfirmInvoice" class="form-check-label small">I understand this amount will be added to our next invoice.</label>
+                                <span asp-validation-for="ConfirmInvoice" class="text-danger d-block"></span>
+                            </div>
+                            <button class="btn btn-primary">@Icons.Svg("plus", 15) Buy credit</button>
+                        }
+                    </form>
+                    @if (Model.Checkout is { } co)
+                    {
+                        @* Razorpay Checkout opens straight away for the order just created; the result is posted back for verification. *@
+                        <form method="post" asp-page-handler="Paid" id="paid-form" class="d-none">
+                            <input type="hidden" name="razorpay_order_id" />
+                            <input type="hidden" name="razorpay_payment_id" />
+                            <input type="hidden" name="razorpay_signature" />
+                        </form>
+                        <div id="rzp-checkout" class="d-none"
+                             data-key="@co.KeyId" data-order="@co.OrderId" data-amount="@co.AmountPaise" data-currency="@co.Currency"
+                             data-name="@co.Name" data-description="@co.Description" data-prefill-name="@co.PrefillName" data-prefill-email="@co.PrefillEmail"></div>
+                    }
+                }
+                else
+                {
+                    <div class="alert alert-secondary small mb-0">Ask an administrator to buy more credits.</div>
+                }
+            </div>
+        </div>
+    </div>
+</div>
+
+@if (Model.Payments.Any())
+{
+    <section class="mt-4">
+        <div class="section-header"><h2 class="section-title">Online payments</h2></div>
+        <div class="table-responsive card">
+            <table class="table table-sm align-middle mb-0">
+                <thead><tr><th>Date</th><th>For</th><th>Status</th><th class="text-end">Amount</th><th>Payment id</th><th>By</th></tr></thead>
+                <tbody>
+                    @foreach (var pay in Model.Payments)
+                    {
+                        <tr>
+                            <td class="text-nowrap">@pay.CreatedAt.ToString("g")</td>
+                            <td class="small">@(pay.Purpose == PaymentPurpose.Subscription ? $"Subscription · {pay.Months} mo" : "Credit")</td>
+                            <td>
+                                <span class="badge @(pay.Status switch { PaymentStatus.Paid => "text-bg-success", PaymentStatus.Failed => "text-bg-danger", _ => "text-bg-secondary" })">
+                                    @(pay.Status == PaymentStatus.Created ? "Not completed" : pay.Status.ToString())
+                                </span>
+                                @if (pay.TestMode) { <span class="badge text-bg-warning">Test</span> }
+                                @if (!string.IsNullOrEmpty(pay.FailureReason)) { <div class="small text-muted">@pay.FailureReason</div> }
+                            </td>
+                            <td class="text-end">@Format.Money(pay.Amount)</td>
+                            <td class="small"><code>@(pay.GatewayPaymentId ?? pay.GatewayOrderId)</code></td>
+                            <td class="small">@pay.By</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </section>
+}
+
+<section class="mt-4">
+    <div class="section-header"><h2 class="section-title">Credit history</h2></div>
+    @if (!Model.History.Any())
+    {
+        <div class="empty-state">No credit bought or granted yet.</div>
+    }
+    else
+    {
+        <div class="table-responsive card">
+            <table class="table table-sm align-middle mb-0">
+                <thead>
+                    <tr><th>Date</th><th>Type</th><th class="text-end">Amount</th><th>By</th><th>Note</th></tr>
+                </thead>
+                <tbody>
+                    @foreach (var t in Model.History)
+                    {
+                        <tr>
+                            <td class="text-nowrap">@t.CreatedAt.ToString("g")</td>
+                            <td><span class="badge @(t.Kind == CreditKind.Grant ? "text-bg-success" : "text-bg-primary")">@(t.Kind == CreditKind.Grant ? "Granted" : "Purchased")</span></td>
+                            <td class="text-end">@Format.Money(t.Amount)</td>
+                            <td class="small">@t.By</td>
+                            <td class="small text-muted">@t.Note</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    }
+</section>
+
+@section Scripts {
+    @if (Model.Checkout is not null)
+    {
+        <script src="https://checkout.razorpay.com/v1/checkout.js"></script>
+        <script>
+            (() => {
+                const d = document.getElementById('rzp-checkout').dataset;
+                const paid = document.getElementById('paid-form');
+                if (!window.Razorpay) {
+                    window.VmsMessages.show("The payment window couldn't be loaded. Check the internet connection and try again.", 'danger');
+                    return;
+                }
+                const rzp = new Razorpay({
+                    key: d.key, order_id: d.order, amount: d.amount, currency: d.currency,
+                    name: d.name, description: d.description,
+                    prefill: { name: d.prefillName, email: d.prefillEmail },
+                    theme: { color: '#6366f1' },
+                    handler: r => {
+                        paid.razorpay_order_id.value = r.razorpay_order_id;
+                        paid.razorpay_payment_id.value = r.razorpay_payment_id;
+                        paid.razorpay_signature.value = r.razorpay_signature;
+                        window.VmsMessages.show('Payment received. Confirming…', 'info', { record: false });
+                        paid.submit();
+                    },
+                    modal: { ondismiss: () => window.VmsMessages.show('Payment cancelled. No money was taken.', 'warning') }
+                });
+                rzp.on('payment.failed', r => window.VmsMessages.show('Payment failed: ' + (r.error && r.error.description || 'please try again.'), 'danger'));
+                rzp.open();
+            })();
+        </script>
+    }
+    <script>
+        (() => {
+            const amount = document.getElementById('buy-amount');
+            const checkIns = document.getElementById('buy-checkins');
+            if (!amount || !checkIns) return;
+            const unit = parseFloat(amount.dataset.unit) || 0;
+            const fmt = new Intl.NumberFormat('en-IN');
+            const update = () => checkIns.textContent = unit > 0 ? fmt.format(Math.floor(Math.max(0, parseFloat(amount.value) || 0) / unit)) : 'unlimited';
+            amount.addEventListener('input', update);
+            document.querySelectorAll('.buy-preset').forEach(b => b.addEventListener('click', () => { amount.value = b.dataset.amount; update(); }));
+        })();
+    </script>
+}

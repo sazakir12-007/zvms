@@ -1,0 +1,115 @@
+@page
+@model VisitorManagement.Pages.Admin.ExportModel
+@{
+    ViewData["Title"] = "Data export";
+}
+
+<div class="page-header">
+    <div>
+        <h1 class="page-title">Data export</h1>
+        <p class="text-muted mb-0 small">Download your organisation's data as a ZIP of CSV files, for your records, audits or moving to another system.</p>
+    </div>
+</div>
+
+<div class="row g-3">
+    <div class="col-lg-7">
+        <form method="post" class="card card-body">
+            <div asp-validation-summary="ModelOnly" class="alert alert-danger" role="alert"></div>
+
+            <span class="form-label">Visits to include</span>
+            <div class="d-grid gap-1 mb-2">
+                <div class="form-check">
+                    <input class="form-check-input" type="radio" name="AllTime" id="all-time" value="true" checked="@Model.AllTime" />
+                    <label class="form-check-label" for="all-time">All time (@Model.TotalVisits visits)</label>
+                </div>
+                <div class="form-check">
+                    <input class="form-check-input" type="radio" name="AllTime" id="date-range" value="false" checked="@(!Model.AllTime)" />
+                    <label class="form-check-label" for="date-range">Date range</label>
+                </div>
+            </div>
+            <div class="row g-2 mb-3 export-range">
+                <div class="col-sm-6">
+                    <label asp-for="From" class="form-label small">From</label>
+                    <input asp-for="From" type="date" class="form-control" />
+                </div>
+                <div class="col-sm-6">
+                    <label asp-for="To" class="form-label small">To</label>
+                    <input asp-for="To" type="date" class="form-control" />
+                </div>
+                <span asp-validation-for="From" class="text-danger"></span>
+            </div>
+
+            <div class="form-check mb-3">
+                <input asp-for="IncludeImages" class="form-check-input" />
+                <label asp-for="IncludeImages" class="form-check-label">Include visitor photos, signatures and ID card images</label>
+                <div class="form-text">Makes the file much larger. Hosts, staff, blacklist, lists and settings are always included; passwords never are.</div>
+            </div>
+
+            <label asp-for="Password" class="form-label">Confirm your password</label>
+            <input asp-for="Password" type="password" class="form-control" autocomplete="current-password" required style="max-width: 320px;" />
+            <span asp-validation-for="Password" class="text-danger"></span>
+
+            <div class="mt-3 d-flex align-items-center gap-3">
+                <button class="btn btn-primary" disabled="@(Model.ExportsLeftToday == 0)">@Icons.Svg("download", 15) Download export</button>
+                <span class="small text-muted">@Model.ExportsLeftToday of @TenantExportService.MaxExportsPerDay exports left in the last 24 hours</span>
+            </div>
+        </form>
+    </div>
+
+    <div class="col-lg-5">
+        <div class="alert alert-warning small mb-3">
+            <strong>The file contains personal data</strong> (visitor names, phone numbers@(Model.IncludeImages ? ", photos" : "")…).
+            Store it securely and delete it when you no longer need it. Every export is recorded below.
+        </div>
+        <div class="card card-body small">
+            <strong class="mb-1">What's in the ZIP</strong>
+            <ul class="mb-0 ps-3">
+                <li><code>visits.csv</code>, <code>hosts.csv</code>, <code>staff.csv</code>, <code>blacklist.csv</code></li>
+                <li><code>dropdown-lists.csv</code>, <code>settings.csv</code>, your logo</li>
+                <li>Optionally <code>photos/</code>, <code>signatures/</code>, <code>id-cards/</code></li>
+                <li><code>README.txt</code> and <code>manifest.json</code> describing the export</li>
+            </ul>
+        </div>
+    </div>
+</div>
+
+<section class="mt-4">
+    <div class="section-header"><h2 class="section-title">Export history</h2></div>
+    @if (!Model.History.Any())
+    {
+        <div class="empty-state">No exports yet.</div>
+    }
+    else
+    {
+        <div class="table-card table-responsive">
+            <table class="table table-sm align-middle mb-0">
+                <thead><tr><th>When</th><th>By</th><th>Visits</th><th>Range</th><th>Images</th><th class="text-end">Size</th></tr></thead>
+                <tbody>
+                @foreach (var l in Model.History)
+                {
+                    <tr>
+                        <td class="text-nowrap">@l.CreatedAt.ToString("g")</td>
+                        <td>@l.StaffName</td>
+                        <td class="tabular">@l.Visits</td>
+                        <td class="small">@(l.From is null ? "All time" : $"{l.From:d} – {l.To:d}")</td>
+                        <td>@(l.IncludedImages ? "Yes" : "No")</td>
+                        <td class="text-end tabular">@ChartScale.Format(Math.Max(1, l.Bytes / 1024)) KB</td>
+                    </tr>
+                }
+                </tbody>
+            </table>
+        </div>
+    }
+</section>
+
+@section Scripts {
+    <script>
+        // Dates only matter for a date-range export.
+        (function () {
+            var range = document.querySelector('.export-range');
+            function sync() { range.style.opacity = document.getElementById('date-range').checked ? 1 : 0.45; }
+            document.querySelectorAll('[name=AllTime]').forEach(function (r) { r.addEventListener('change', sync); });
+            sync();
+        })();
+    </script>
+}

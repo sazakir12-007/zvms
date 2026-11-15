@@ -1,0 +1,37 @@
+@model PassModel
+@{
+    var v = Model.Visit;
+}
+<div class="@Model.RootClasses">
+    <div class="pc-header">
+        <partial name="Passes/_Logo" model="Model.Brand" />
+        <span class="pc-title">VISITOR</span>
+    </div>
+    <div class="pc-body">
+        <partial name="Passes/_Photo" model="Model" />
+        <div class="pc-info">
+            <div class="pass-name">@v.VisitorName</div>
+            <div class="pass-company">@v.Company</div>
+            <dl class="pass-details">
+                <dt class="pass-host">Host</dt><dd class="pass-host">@v.Employee?.Name</dd>
+                @if (!string.IsNullOrEmpty(v.Department))
+                {
+                    <dt class="pass-host">Dept</dt><dd class="pass-host">@v.Department</dd>
+                }
+                @if (v.Location is { } loc)
+                {
+                    <dt>Where</dt><dd>@loc</dd>
+                }
+                <dt>Date</dt><dd>@v.CheckedInAt?.ToString("d")</dd>
+                <dt class="pass-until">Until</dt><dd class="pass-until">@v.ExpectedCheckOutAt?.ToString("t")</dd>
+                <dt>Badge</dt><dd>@v.BadgeNumber</dd>
+            </dl>
+        </div>
+    </div>
+    <div class="pc-purpose">@v.Purpose</div>
+    <div class="pass-footer">@Model.Settings.FooterText</div>
+    @if (Model.Void)
+    {
+        <div class="pass-void">NOT VALID</div>
+    }
+</div>

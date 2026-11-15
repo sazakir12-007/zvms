@@ -1,0 +1,17 @@
+@model PassModel
+@* Draws a visitor pass with the template chosen in Admin › Pass templates. *@
+@switch (Model.Settings.Template)
+{
+    case PassTemplate.Modern:
+        <partial name="Passes/_Modern" model="Model" />
+        break;
+    case PassTemplate.Lanyard:
+        <partial name="Passes/_Lanyard" model="Model" />
+        break;
+    case PassTemplate.Minimal:
+        <partial name="Passes/_Minimal" model="Model" />
+        break;
+    default:
+        <partial name="Passes/_Classic" model="Model" />
+        break;
+}

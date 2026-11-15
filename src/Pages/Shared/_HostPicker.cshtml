@@ -1,0 +1,26 @@
+@model HostPickerModel
+@* Department filter + host list. Only the host is posted (Visit.EmployeeId); the visit's department is taken
+   from the host on the server. Filtering lives in wwwroot/js/site.js. *@
+<div class="row g-3 host-picker">
+    <div class="col-md-6">
+        <label class="form-label" for="@(Model.IdPrefix)-department">Department</label>
+        <select id="@(Model.IdPrefix)-department" class="form-select host-department">
+            <option value="">All departments</option>
+            @foreach (var d in Model.Departments)
+            {
+                <option value="@d">@d</option>
+            }
+        </select>
+    </div>
+    <div class="col-md-6">
+        <label class="form-label" for="@(Model.IdPrefix)-host">Who are you visiting?</label>
+        <select id="@(Model.IdPrefix)-host" name="Visit.EmployeeId" class="form-select host-select">
+            <option value="0">-- Select --</option>
+            @foreach (var e in Model.Hosts)
+            {
+                <option value="@e.Id" data-department="@HostPickerModel.DepartmentOf(e)" selected="@(e.Id == Model.SelectedHostId)">@e.Name</option>
+            }
+        </select>
+        @Html.ValidationMessage("Visit.EmployeeId", new { @class = "text-danger" })
+    </div>
+</div>

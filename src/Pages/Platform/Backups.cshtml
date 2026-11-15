@@ -1,0 +1,66 @@
+@page
+@model VisitorManagement.Pages.Platform.BackupsModel
+@{
+    ViewData["Title"] = "Backups";
+}
+
+<div class="page-header">
+    <div>
+        <h1 class="page-title">Database backups</h1>
+        <p class="text-muted mb-0 small">Full backups of the whole database: every organisation's data. Use these alongside your scheduled server backups.</p>
+    </div>
+    <a class="btn btn-outline-secondary" href="/platform/tenants">Organisations</a>
+</div>
+
+<div class="row g-3 mb-3">
+    <div class="col-lg-6">
+        <form method="post" asp-page-handler="Create" class="card card-body">
+            <h2 class="section-title mb-2">Back up now</h2>
+            <p class="small text-muted">Takes a consistent copy while the app keeps running, checks its integrity, compresses it and saves it on the server.</p>
+            <label class="form-label" for="create-password">Confirm your password</label>
+            <div class="d-flex gap-2">
+                <input id="create-password" name="password" type="password" class="form-control" autocomplete="current-password" required style="max-width: 280px;" />
+                <button class="btn btn-primary">@Icons.Svg("download", 15) Create backup</button>
+            </div>
+        </form>
+    </div>
+    <div class="col-lg-6">
+        <div class="card card-body small">
+            <div><span class="text-muted">Saved in:</span> <code>@Model.Folder</code></div>
+            <div><span class="text-muted">Kept:</span> the latest @Model.Keep (older ones are removed automatically)</div>
+            <div class="mt-2"><strong>To restore:</strong> stop the app, replace <code>App_Data/visitors.db</code> with <code>visitors.db</code> from the ZIP (delete any <code>-wal</code>/<code>-shm</code> files), then start the app.</div>
+            <div class="mt-2 text-danger">Backups contain every organisation's personal data. Download only to secure storage.</div>
+        </div>
+    </div>
+</div>
+
+<div class="table-card table-responsive">
+    <table class="table table-hover align-middle mb-0">
+        <thead><tr><th>Backup</th><th>Created</th><th class="text-end">Size</th><th>Download (confirm password)</th><th></th></tr></thead>
+        <tbody>
+        @foreach (var f in Model.Files)
+        {
+            <tr>
+                <td><code>@f.Name</code></td>
+                <td class="text-nowrap">@f.CreatedAt.ToString("g")</td>
+                <td class="text-end tabular">@((f.Bytes / 1024.0).ToString("N0")) KB</td>
+                <td>
+                    <form method="post" asp-page-handler="Download" asp-route-name="@f.Name" class="d-flex gap-1">
+                        <input name="password" type="password" class="form-control form-control-sm" placeholder="Password" autocomplete="current-password" required style="width: 150px;" aria-label="Password to download @f.Name" />
+                        <button class="btn btn-sm btn-outline-primary">Download</button>
+                    </form>
+                </td>
+                <td class="text-end">
+                    <form method="post" asp-page-handler="Delete" asp-route-name="@f.Name" data-confirm="Delete this backup from the server?">
+                        <button class="icon-btn icon-btn-danger" title="Delete" aria-label="Delete @f.Name">@Icons.Svg("trash", 14)</button>
+                    </form>
+                </td>
+            </tr>
+        }
+        @if (!Model.Files.Any())
+        {
+            <tr><td colspan="5" class="text-center text-muted py-4">No backups yet.</td></tr>
+        }
+        </tbody>
+    </table>
+</div>

@@ -1,0 +1,29 @@
+@model PassModel
+@* Black-only label for thermal printers: no fills, high contrast, purpose as outlined text. *@
+@{
+    var v = Model.Visit;
+}
+<div class="@Model.RootClasses">
+    <div class="pn-top">
+        <span class="pn-title">VISITOR</span>
+        <partial name="Passes/_Logo" model="Model.Brand" />
+        <span class="pn-date">@v.CheckedInAt?.ToString("d")</span>
+    </div>
+    <div class="pn-body">
+        <div class="min-w-0">
+            <div class="pass-name">@v.VisitorName</div>
+            <div class="pass-company">@v.Company</div>
+            <div class="pn-line pass-host">Host: <strong>@v.Employee?.Name</strong></div>
+            <div class="pn-line"><span class="pn-purpose">@v.Purpose</span> <span class="pass-until">until @v.ExpectedCheckOutAt?.ToString("t")</span></div>
+        </div>
+        <partial name="Passes/_Photo" model="Model" />
+    </div>
+    <div class="pn-bottom">
+        <span>@v.BadgeNumber</span>
+        <span class="pass-footer">@Model.Settings.FooterText</span>
+    </div>
+    @if (Model.Void)
+    {
+        <div class="pass-void">NOT VALID</div>
+    }
+</div>
