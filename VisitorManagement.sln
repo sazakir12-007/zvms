@@ -5,7 +5,7 @@ VisualStudioVersion = 17.0.31903.59
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "src", "src", "{74D88CF8-6D88-4180-8483-3F476865F620}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "VisitorManagement", "src\VisitorManagement\VisitorManagement.csproj", "{96C06239-3049-46D7-8A30-07932A3D50A8}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "VisitorManagement", "src\VisitorManagement.csproj", "{96C06239-3049-46D7-8A30-07932A3D50A8}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution

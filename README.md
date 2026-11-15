@@ -7,20 +7,20 @@ ASP.NET Core 8 Razor Pages app with EF Core + SQLite.
 Development:
 
 ```bash
-dotnet run --project src/VisitorManagement --urls http://localhost:5080
+dotnet run --project src/VisitorManagement.csproj --urls http://localhost:5080
 ```
 
 Local "deployment" (Release build):
 
 ```bash
-dotnet publish src/VisitorManagement -c Release -o publish
+dotnet publish src/VisitorManagement.csproj -c Release -o publish
 dotnet publish/VisitorManagement.dll --contentRoot D:/repos/local/vms-claude/publish --urls http://localhost:5080
 ```
 
 `--contentRoot` must be an absolute path (a relative one is resolved against the `publish` folder itself).
 
 The SQLite database is created at `App_Data/visitors.db` under the content root on first run
-(`src/VisitorManagement/App_Data` for `dotnet run`, `publish/App_Data` for the published build)
+(`src/App_Data` for `dotnet run`, `publish/App_Data` for the published build)
 and seeded with four sample hosts. Schema changes are applied automatically at startup via EF Core migrations.
 
 The webcam only works on `http://localhost` or over HTTPS — browsers block camera access on plain-HTTP network addresses.
@@ -162,7 +162,7 @@ Photos are JPEGs captured in the browser (max 640px wide), validated server-side
 
 - **Host notifications**: `VisitService.NotifyHostAsync` only logs. Wire it to email (SMTP / SendGrid), Teams or Slack.
 - **HTTPS**: before exposing the app beyond this PC, run it behind HTTPS so sign-in cookies and the webcam work on the network.
-- **Schema changes**: `dotnet tool restore`, then `dotnet ef migrations add <Name> --project src/VisitorManagement -o Data/Migrations`.
+- **Schema changes**: `dotnet tool restore`, then `dotnet ef migrations add <Name> --project src/VisitorManagement.csproj -o Data/Migrations`.
 - **Data retention**: add a scheduled job to purge visitor personal data, photos, signatures and business card images after your retention period.
 - **Business card OCR**: Tesseract.js runs in the browser and is loaded from cdn.jsdelivr.net (with its English language data) the
   first time a card is scanned, so the kiosk needs internet access for it. To run fully offline, host `tesseract.js`, its worker,
