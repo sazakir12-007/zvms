@@ -1,0 +1,15 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "vms-local",
+      "runtimeExecutable": "dotnet",
+      "runtimeArgs": [
+        "D:/repos/local/vms-claude/publish/VisitorManagement.dll",
+        "--contentRoot", "D:/repos/local/vms-claude/publish",
+        "--urls", "http://localhost:5080"
+      ],
+      "port": 5080
+    }
+  ]
+}
